@@ -92,5 +92,5 @@
 
 ## 与校验的关系
 
-- 任何新组件加入前，样式必须通过 `validate_wx_html.py`（禁 `<pre>`/`<div>`/`class` 等红线）。
+- 任何新组件加入前，样式必须通过 `validate_wx_html.py`（禁 `<pre>`/`class` 等红线；`<div>` 为 WARN，见组件 2 注）。
 - 修改本文档组件样式 = 全系列样式变更，改前在 CHANGELOG 记录，改后抽查已发布文章确认无回归。

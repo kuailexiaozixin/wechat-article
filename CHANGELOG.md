@@ -9,6 +9,20 @@
 > 源技能 gzh-design-skill 已于 2026-09-17 移入
 > `fasterp_ledger_backup\gzh-design-skill\`（保留备查）。
 
+## 3.0.1（2026-09-17）板块六实战检验修复
+
+板块六第 1 篇（0047 复式记账原理）写作与推送全链路实测，发现并修复：
+
+### 修复 1：`<div>` 标签级别三处矛盾统一
+- 现象：`Write/SKILL.md` 红线节与校验说明节仍写「禁止 `<div>`」，而校验器实测 `<div>` 为 WARN（API 推送路径不清洗、板块五已发布文章在用），且 `theme-fasterp.md` 组件 2 装饰线正是 `<div>`——技能内部三处互相矛盾。
+- 本质：规范文本滞后于校验器实现与真实产物。
+- 解决：`Write/SKILL.md` 两处、`theme-fasterp.md`「与校验的关系」节统一为「`<div>` WARN 级、能用 `<section>` 用 `<section>`」。
+
+### 修复 2：`upload_imgs.py` 的 WX 路径指向不存在的文件
+- 现象：批量上传 `FAIL fig6-1-events.png`，而直接调 `scripts/wx_api.py uploadimg` 成功。
+- 根因：`upload_imgs.py` 内 `WX = 同目录/wx_api.py`，但 `wx_api.py` 实际在技能根 `scripts/`（`materials/scripts/` 下只有 upload_imgs.py）。
+- 解决：WX 改为三级上级目录拼接 `scripts/wx_api.py`；修复后批量上传成功。
+
 ## 3.0.0（2026-09-17）全面重构（批判后完善）
 
 依据对技能的批判与 gzh-design-skill 借鉴，完成以下变更：

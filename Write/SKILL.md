@@ -32,7 +32,8 @@ description: '公众号文章写作与 wx 内联版 HTML 排版：从素材归�
 
 ### 标签与样式红线
 - **禁止 `<pre>` 代码块**：微信会剥离 `<pre>` 并折叠空格/换行，缩进全丢、代码不可读。代码块必须用 `<section>` 容器 + 逐行 `<p>`。
-- 禁止 `<div>`（用 `<section>`）、禁止 `class`/`id` 属性、禁止 `position:fixed/absolute/sticky`、`float`、`@media`、`@keyframes`、`display:grid`、CSS 变量、外部字体。
+- `<div>` 为 **WARN 级**（非 ERROR）：API 推送路径实测微信不清洗、样式保留（theme-fasterp 组件 2 在用）；但编辑器粘贴路径会被改写，官方红线不建议——**能用 `<section>` 就用 `<section>`**。
+- 禁止 `class`/`id` 属性、禁止 `position:fixed/absolute/sticky`、`float`、`@media`、`@keyframes`、`display:grid`、CSS 变量、外部字体（样式级红线只查元素 style 属性，代码块文本中的 CSS 示例不算违规）。
 - 代码内 `<` `>` `&` 必须转义为 `&lt;` `&gt;` `&amp;`。
 - 行内缩进空格转 `&nbsp;`（4 空格 = 4 个 `&nbsp;`）；代码空行用 `<p style="...">&nbsp;</p>`。
 - 正文图片必须为 `mmbiz.qpic.cn` URL（先 `uploadimg` 换 URL，见 `../materials/`）；**禁止本地相对路径**（如 `../assets/xxx.png`，微信端必不显示）。
@@ -78,7 +79,7 @@ description: '公众号文章写作与 wx 内联版 HTML 排版：从素材归�
 python scripts/validate_wx_html.py <article.html>
 ```
 
-它确定性检查：禁标签（`<style>/<script>/<link>/<pre>/<div>`）、禁属性（class/id）、禁样式（position/float/@media/grid/变量/外部字体）、图片必须 mmbiz 域名（本地路径 ERROR）、产物为纯 section 片段、写作纪律禁用词、正文半角标点（WARNING）。**ERROR 必须修复到 0；WARNING 也逐项确认**——半角标点与图片域名是实际返工最高频的两类。
+它确定性检查：禁标签（`<style>/<script>/<link>/<pre>`；`<div>` 为 WARN）、禁属性（class/id）、禁样式（position/float/@media/grid/变量/外部字体，只查 style 属性）、图片必须 mmbiz 域名（本地路径 ERROR）、产物为纯 section 片段、写作纪律禁用词、正文半角标点（WARNING）。**ERROR 必须修复到 0；WARNING 也逐项确认**——半角标点与图片域名是实际返工最高频的两类。
 
 本地预览（推送前自查排版效果）：
 

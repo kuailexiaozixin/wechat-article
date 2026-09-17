@@ -10,7 +10,7 @@
 """
 import os, re, json, subprocess, sys
 
-WX = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wx_api.py")
+WX = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scripts", "wx_api.py")
 
 
 def parse(argv):
