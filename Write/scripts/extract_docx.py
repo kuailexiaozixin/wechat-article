@@ -5,7 +5,9 @@
 素材归一化层的确定性组件：把 docx 的标题层级 / 粗体 / 下划线 / 列表 /
 图片 / 表格转成 Markdown，供 Write 写作流程复用。
 
-移植自 gzh-design-skill（scripts/extract_docx.py），用法与逻辑一致。
+移植自 gzh-design-skill（scripts/extract_docx.py，AGPL-3.0，
+作者 甲木 × 摸鱼小李，https://github.com/.../gzh-design-skill）。
+依 AGPL-3.0 保留来源声明；本文件属衍生作品，分发时须遵循 AGPL-3.0。
 
 用法:
     extract_docx.py 文章.docx [-o 输出.md]

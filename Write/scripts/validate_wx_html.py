@@ -13,10 +13,11 @@
 退出码: 1 = 有 ERROR（会被微信过滤或显示异常，必须修复）; 0 = 通过
 （WARNING 建议人工确认）。
 
-与 gzh-design-skill 的 validate_gzh_html.py 差异：本校验面向
-「draft/add API 直接推送」路径，不要求 <span leaf=""> 包裹
+与 gzh-design-skill 的 validate_gzh_html.py（AGPL-3.0，作者 甲木 × 摸鱼小李）
+差异：本校验面向「draft/add API 直接推送」路径，不要求 <span leaf=""> 包裹
 （API 保留内联样式，实测样式正常）；但要求图片必须 mmbiz 域名、
 代码块必须 <section>+逐行 <p>、产物为纯正文片段。
+检查项清单借鉴自该技能；实现为本文件独立编写。依 AGPL-3.0 保留来源声明。
 """
 import argparse
 import os

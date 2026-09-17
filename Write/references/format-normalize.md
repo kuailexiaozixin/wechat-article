@@ -2,6 +2,8 @@
 
 Write 写作流程接受 Markdown 素材。任何非 Markdown 输入（docx / pdf / 纯文本 / 网页富文本）先按本文件转成 Markdown 草稿，**转换只整理结构，不得增删改写原文实质内容**。
 
+> 方法体系借鉴自 gzh-design-skill（references/format-normalize.md，AGPL-3.0，作者 甲木 × 摸鱼小李）；本文内容为本技能独立组织。
+
 ## 输入类型判定
 
 | 输入 | 判定 | 处理 |

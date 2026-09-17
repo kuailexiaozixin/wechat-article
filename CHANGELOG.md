@@ -2,6 +2,13 @@
 
 本技能变更记录（与 git 提交一一对应）。
 
+> **许可合规说明（AGPL-3.0）**：`Write/scripts/extract_docx.py` 逐字移植自
+> gzh-design-skill（AGPL-3.0，作者 甲木 × 摸鱼小李）；`validate_wx_html.py`、
+> `wrap_preview.py`、`format-normalize.md` 借鉴其方法体系。上述文件均已标注
+> 来源与许可。本技能如对外分发，涉及这些文件的部分须遵循 AGPL-3.0 开源。
+> 源技能 gzh-design-skill 已于 2026-09-17 移入
+> `fasterp_ledger_backup\gzh-design-skill\`（保留备查）。
+
 ## 3.0.0（2026-09-17）全面重构（批判后完善）
 
 依据对技能的批判与 gzh-design-skill 借鉴，完成以下变更：
