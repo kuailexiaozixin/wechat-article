@@ -9,6 +9,22 @@
 > 源技能 gzh-design-skill 已于 2026-09-17 移入
 > `fasterp_ledger_backup\gzh-design-skill\`（保留备查）。
 
+## 3.0.2（2026-09-17）板块六实战再修复
+
+### 修复 3：`wx_api.py` http_json 对非 JSON 错误响应崩溃
+- 现象：`draft-update` 返回 501（腾讯 WAF 拦截页，HTML 而非 JSON），`json.loads` 直接抛 `JSONDecodeError`，真实错误被吞。
+- 本质：错误路径只假设"永远是微信 JSON 错误体"，遇到网关/防火墙 HTML 页就崩。
+- 解决：HTTPError 分支先尝试解析 JSON，失败则返回 `{"errcode": code, "errmsg": "non-JSON response", "raw": ...}` 供诊断。
+
+### 修复 4：`upload_imgs.py` `--map` 覆盖写丢失旧映射
+- 现象：先传流程图生成 map，再传封面 `--map` 同文件，旧映射被整份覆盖，HTML 里流程图退回本地路径。
+- 解决：写 map 前先读已有文件合并，只增不覆盖。
+
+### 修复 5（转换器侧，非技能）：md 母本 BOM 导致标题降级为正文
+- 现象：草稿正文顶部显示「# 复式记账：一张凭证为什么必须记两笔」而非标题样式。
+- 根因：PowerShell `Set-Content -Encoding utf8` 写入 BOM，build_wx.py 的 `startswith("# ")` 匹配失败，标题行落入正文段。
+- 解决：build_wx.py 以 `utf-8-sig` 读母本并 `lstrip("\ufeff")`；正文顶部按公众号惯例加封面头图（mmbiz）。
+
 ## 3.0.1（2026-09-17）板块六实战检验修复
 
 板块六第 1 篇（0047 复式记账原理）写作与推送全链路实测，发现并修复：
