@@ -57,7 +57,13 @@ def http_json(url, data=None, headers=None, method=None):
         with urllib.request.urlopen(req, timeout=30) as r:
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        return json.loads(e.read().decode("utf-8", "ignore"))
+        raw = e.read().decode("utf-8", "ignore")
+        try:
+            return json.loads(raw)
+        except Exception:
+            # 网关/WAF 拦截返回非 JSON（如腾讯 waf 501 页），原样输出便于诊断
+            return {"errcode": e.code, "errmsg": "non-JSON response",
+                    "raw": raw[:400]}
 
 
 def get_token(appid, secret):

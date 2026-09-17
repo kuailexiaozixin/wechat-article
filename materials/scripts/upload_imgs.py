@@ -49,6 +49,11 @@ def main():
         print("无可上传图片"); return
     env = os.environ.copy()
     mapping = {}
+    if outmap and os.path.exists(outmap):
+        try:
+            mapping = json.load(open(outmap, encoding="utf-8"))
+        except Exception:
+            mapping = {}
     for p in sorted(need):
         r = subprocess.run([sys.executable, WX, "uploadimg", p], env=env,
                            capture_output=True, text=True, encoding="utf-8", errors="replace")
