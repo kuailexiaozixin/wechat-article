@@ -2,6 +2,30 @@
 
 本技能变更记录（与 git 提交一一对应）。
 
+## 3.1.0（2026-09-17）板块八实战检验修复
+
+板块八 4 篇（0060/0062/0063/0064）写作推送全链路实测，发现并修复：
+
+### 修复 1：Markdown 母本转换器缺失（最大缺口）
+- 现象：新板块首次构建时 `build_wx.py`/`fix_quotes.py` 不存在于技能内，只能从板块六 assets 复制；技能文档写着"可先写 Markdown 母本再转 wx 内联版"，但转换器本身不是技能资产，散落各板块。
+- 本质：方法描述与工具资产分离——规范承诺的能力没有对应的可复用实现。
+- 解决：`build_wx.py`（母本 → wx 内联版，theme-fasterp 组件）与 `fix_quotes.py`（正文引号全角化）纳入 `Write/scripts/`；`Write/SKILL.md` 新增「Markdown 母本 → wx 内联版（转换器，首选路径）」小节与流程第 5 步转换器路径；根 SKILL.md 辅助脚本清单补齐。
+
+### 修复 2：装饰线 `<div>` → `<section>`（WARN 清零）
+- 现象：`validate_wx_html.py` 每篇报 1 处 `<div>` WARN，来源是 `build_wx.py` 的 `P_LINE` 装饰线。
+- 本质：历史产物用 `<div>`（API 路径实测可用），但新产物可完全避免——`<section>` 默认 display:block，样式与 `<div>` 一致，两条推送路径都安全。
+- 解决：技能内 `build_wx.py` 的 `P_LINE` 改为 `<section>`；板块八 4 篇 wx 产物重建后校验 WARN 清零（已推送草稿保持原状，`<div>` 在 API 路径安全，不重推）。
+
+### 修复 3：`draft-get` 输出 BOM 陷阱
+- 现象：PowerShell `Out-File -Encoding utf8` 写 BOM，`json.load` 报 `Unexpected UTF-8 BOM`。
+- 本质：调用侧编码问题，非技能脚本缺陷。
+- 解决：`references/gotchas.md` 新增第 16 条（draft-get 输出用 `utf-8-sig` 读或 `utf8NoBOM` 写）。
+
+### 修复 4：转换器用法文档化
+- `references/gotchas.md` 新增第 15 条（转换器路径：fix_quotes → upload_imgs → build_wx → 校验 → 推送；母本无 BOM 要求）。
+
+## 3.0.3（2026-09-17）板块六实战检验修复
+
 > **许可合规说明（AGPL-3.0）**：`Write/scripts/extract_docx.py` 逐字移植自
 > gzh-design-skill（AGPL-3.0，作者 甲木 × 摸鱼小李）；`validate_wx_html.py`、
 > `wrap_preview.py`、`format-normalize.md` 借鉴其方法体系。上述文件均已标注

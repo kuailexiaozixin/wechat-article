@@ -1,7 +1,7 @@
 ---
 name: wechat-article
 description: '微信公众号文章全链路：写作与 wx 内联版 HTML 排版（Write）、素材图片上传（materials）、草稿箱管理（draft）、发布能力（publish）、文章读取（Read）、文章搜索（Search）。覆盖写作纪律（去 AI 味/不虚构）、微信兼容 HTML 硬规范（内联样式/禁 <pre>/代码块 section+逐行 p/mmbiz 正文图/纯 section 片段）、确定性合规校验、access_token、封面与正文图上传、草稿新增/更新/查询/列表/计数/删除、草稿发布（freepublish）、发布状态/列表/删除。当用户要求“写一篇公众号文章”“做公众号排版”“推送到公众号草稿箱”“发公众号文章”“删除草稿”“发布草稿”“看看公众号草稿列表”“读取某篇公众号文章”“搜索公众号文章/公众号”时使用。凭据从 WECHAT_APPID / WECHAT_SECRET 环境变量读取。本技能按能力域拆为六个子技能，入口只负责身份、凭据、路由与公共注意。'
-version: 3.0.0
+version: 3.1.0
 display_name: "微信公众号文章（写作·排版·草稿·发布）"
 display_name_en: "WeChat Article (Write · Design · Draft · Publish)"
 description_zh: "微信公众号文章全链路：写作纪律与 wx 内联版 HTML 排版、素材上传、草稿管理、发布、文章读取与搜索。"
@@ -49,7 +49,7 @@ $env:WECHAT_APPID="wx..."; $env:WECHAT_SECRET="..."; $env:WECHAT_AUTHOR="贺新"
 1. **`scripts/wx_api.py`** — 全能力 CLI。子命令：`token` · `cover` · `uploadimg` · `draft-add` · `draft-update` · `draft-get` · `draft-list` · `draft-count` · `draft-delete` · `publish` · `publish-get` · `publish-list` · `publish-delete`（完整用法见各子技能）。
 2. **`scripts/wx_draft_push.py`** — 简易单命令推送：`python wx_draft_push.py --html <path> --title "<标题>" --digest "<摘要>" [--cover <img>]`，自动 token→封面→草稿，成功输出 `DRAFT_OK media_id:`。仅推送；查询/发布走 wx_api.py。
 
-辅助脚本（见各子技能）：`materials/scripts/upload_imgs.py`（批量预上传正文图）、`Write/scripts/validate_wx_html.py`（推送前合规校验）、`Write/scripts/render_mermaid.py`（系统 Edge 渲染 mermaid）、`Write/scripts/wrap_preview.py`（本地预览）、`Write/scripts/extract_docx.py`（docx→Markdown）。
+辅助脚本（见各子技能）：`materials/scripts/upload_imgs.py`（批量预上传正文图）、`Write/scripts/validate_wx_html.py`（推送前合规校验）、`Write/scripts/render_mermaid.py`（系统 Edge 渲染 mermaid）、`Write/scripts/build_wx.py`（Markdown 母本 → wx 内联版，theme-fasterp 组件）、`Write/scripts/fix_quotes.py`（母本引号全角化）、`Write/scripts/wrap_preview.py`（本地预览）、`Write/scripts/extract_docx.py`（docx→Markdown）。
 
 ## 参数/内容硬约束
 

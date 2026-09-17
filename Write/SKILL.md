@@ -52,6 +52,20 @@ description: '公众号文章写作与 wx 内联版 HTML 排版：从素材归�
 
 要点：每行一个 `<p>`、`margin:0`、`text-indent:0`；`line-height:1.6` 保证代码行距可读；高亮行可给该行 `color:#B35900;font-weight:bold`；行数多的代码块（>15 行）在正文中截取关键片段，完整代码注明仓库路径供对照。
 
+### Markdown 母本 → wx 内联版（转换器，首选路径）
+
+先写 Markdown 母本、再一键转 wx 内联版，是系列文章的标准路径。两个转换器在 `Write/scripts/`：
+
+```bash
+# 1) 正文引号全角化（跳过代码块，幂等）—— 写完后、转 HTML 前运行
+python Write/scripts/fix_quotes.py <母本.md>
+
+# 2) 母本 → wx 内联版 HTML（theme-fasterp 组件；图片按 mmbiz-map 换 URL）
+python Write/scripts/build_wx.py <母本.md> [mmbiz-map.json]
+```
+
+`build_wx.py` 约定：`# ` 大标题 + 金色装饰线（`<section>`，非 `<div>`）、`## ` 章节标题（左竖条）、正文段首缩进 2em、`` `行内代码` `` 转 `<code>`、``` ```代码块``` ``` 转 `<section>`+逐行 `<p>`、`![图注](assets/x.png)` 从 mmbiz-map.json 查 URL（缺失保留本地路径供 `upload_imgs --html` 兜底）。输出 `<母本名>-wx.html`（同目录）。装饰线用 `<section>` 而非 `<div>`：两条推送路径都安全，校验 WARN 清零（历史版本用 `<div>`，API 路径亦可用，但新产物一律 `<section>`）。
+
 ### 正文排版（FastERP 系列套用主题资产）
 
 - **系列文章一律套用 `references/theme-fasterp.md`**（从已发布板块五文章逐条提取的样式单一来源）：主色深蓝 `#1F3864` + 点缀金 `#B08D3E`，大标题 22px 居中 + 金线装饰，章节标题 18px 加粗左竖条，正文 16px/1.9/首行缩进 2em，代码块 `#F6F8FA` 底，行内代码 `#C7254E`，图注 12.5px 灰。
@@ -96,6 +110,8 @@ python scripts/wrap_preview.py <article.html>
 3. **写正文（直接引用 mmbiz URL）**：按「一、写作纪律」成文 + 按「二、硬规范」排版，HTML 中所有 `<img src="...">` 直接写 mmbiz URL。可先写 Markdown 母本再转 wx 内联 HTML，或直接写 HTML——无论哪种，**图片 URL 在 HTML 生成时即合规，不出现本地路径**。
 4. **校验 + 预览**：`validate_wx_html.py` ERROR=0；`wrap_preview.py` 本地自查。
 5. **推送**：`../draft/` 的 `draft-add`（或简易版 `../scripts/wx_draft_push.py`）推草稿 → `draft-get` 抽查 → 交付预览。
+
+> 转换器路径（推荐）：先写 Markdown 母本 → `fix_quotes.py` 全角化引号 → 预上传配图得 mmbiz-map → `build_wx.py <母本.md> <mmbiz-map.json>` 一键转 wx 内联版 → 校验 → 推送。三篇以上系列文章一律走这条路径，不手写 HTML。
 
 > 兼容路径（仅历史遗留）：若手里已有引用本地路径的 HTML，才需要"上传 → 替换 → 重推"的事后补救；**新写文章一律按第 2–3 步一步到位**。
 

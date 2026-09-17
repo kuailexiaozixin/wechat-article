@@ -63,5 +63,13 @@ PowerShell/cmd 下 GBK stdout 会在 emoji/非 ASCII 打印时崩溃。调用前
 - 用法：`python Write/scripts/validate_wx_html.py <article.html>`；退出码 1 = 有 ERROR，0 = 通过（WARNING 人工确认）。
 - ERROR 高频来源（实测排序）：图片本地路径/非 mmbiz 域名、`<pre>` 残留、禁用词（「本文」等）、style 属性里的红线样式（position/grid/var/外部字体）。
 - 样式红线只查**元素 style 属性**——代码块文本里的 CSS 示例（如 `.app{display:grid;...}`）不算违规。
-- `<div>` 为 WARN：API 推送路径实测不清洗（板块五已发布文章在用），编辑器粘贴路径会被改写。
+- `<div>` 为 WARN：API 推送路径实测不清洗（板块五已发布文章在用），编辑器粘贴路径会被改写。**新产物一律用 `<section>`**——`Write/scripts/build_wx.py` 的装饰线已是 `<section>`（3.1.0 起），校验 WARN 清零。
 - 历史教训：本地路径 HTML 一旦误推，图片全部不显示，事后替换需重推整篇——所以「一步到位 + 推送前校验」是硬流程，不是建议。
+
+## 15. 转换器路径（Write/scripts/build_wx.py + fix_quotes.py）
+- 系列文章标准路径：写 Markdown 母本 → `fix_quotes.py <母本.md>`（正文引号全角化，跳过代码块，幂等）→ `upload_imgs.py --img ... --map mmbiz-map.json` 预上传 → `build_wx.py <母本.md> <mmbiz-map.json>` → 校验 → 推送。
+- `build_wx.py` 约定：`# ` 大标题 + `<section>` 金色装饰线、`## ` 章节标题、正文段首缩进 2em、行内代码转 `<code>`、代码块转 `<section>`+逐行 `<p>`（`&nbsp;` 缩进）、`![图注](assets/x.png)` 按 map 换 mmbiz URL。输出 `<母本名>-wx.html`。
+- 母本必须无 BOM（PowerShell `Set-Content -Encoding utf8` 会写 BOM，导致 `# ` 标题匹配失败降级为正文；用 UTF-8 无 BOM 写，`build_wx.py` 已按 `utf-8-sig` 防御读取）。
+
+## 16. draft-get 输出编码（PowerShell 调用侧）
+`wx_api.py draft-get` 输出 JSON 到 stdout；PowerShell `Out-File -Encoding utf8` 会写 BOM，`json.load` 报 `Unexpected UTF-8 BOM`。改用 `python -c "json.load(open(f, encoding='utf-8-sig'))"` 或 `| Set-Content -Encoding utf8NoBOM`。
