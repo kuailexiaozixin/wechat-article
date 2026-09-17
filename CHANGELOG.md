@@ -9,6 +9,10 @@
 > 源技能 gzh-design-skill 已于 2026-09-17 移入
 > `fasterp_ledger_backup\gzh-design-skill\`（保留备查）。
 
+### 修复 6：validate_wx_html.py 对英文词内撇号误报
+- 现象：0048 正文含科目名 Owner\'s Equity，校验器 ASCII_QUOTE 将撇号判为半角直引号，误报 WARNING。
+- 本质：ASCII 单引号检测未区分「英文所有格撇号」与「中文语境直引号」。
+- 解决：新增 APOSTROPHE_WORD（[A-Za-z]'\w 等），检测前先剔除英文词内撇号；0047/0048 均回归通过。
 ## 3.0.2（2026-09-17）板块六实战再修复
 
 ### 修复 3：`wx_api.py` http_json 对非 JSON 错误响应崩溃

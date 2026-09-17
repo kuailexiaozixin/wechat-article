@@ -61,6 +61,8 @@ CJK = re.compile(r"[一-鿿㐀-䶿]")
 # 中文字后紧跟半角逗号/分号/叹号/问号（应改全角）；只查"中文在前"避免中英混排误伤
 HALF_PUNCT = re.compile(r"[一-鿿㐀-䶿][,;!?]")
 ASCII_QUOTE = re.compile(r"[\"']")
+# 英文词内撇号（Owner's / don't / 2000's）——合法英文，检测直引号时豁免
+APOSTROPHE_WORD = re.compile(r"[A-Za-z]'\w|\w+'")
 # 代码区特征：等宽字体或 white-space:pre —— 其内半角符号/直引号是正常的
 CODE_STYLE = re.compile(r"monospace|white-space\s*:\s*pre|courier|consolas|menlo", re.I)
 CODE_TAGS = {"code", "pre", "tt"}
@@ -129,7 +131,9 @@ class InlineChecker(HTMLParser):
         if any(t in SKIP_TAGS for t, _, in self.stack):
             return
         if self.code_depth == 0:
-            if HALF_PUNCT.search(text) or ASCII_QUOTE.search(text):
+            # 英文词内撇号（Owner's 等）是合法英文，先剔除再查直引号
+            text_naked = APOSTROPHE_WORD.sub("", text)
+            if HALF_PUNCT.search(text) or ASCII_QUOTE.search(text_naked):
                 snippet = text[:24] + ("…" if len(text) > 24 else "")
                 self.half_punct.append(snippet)
 
