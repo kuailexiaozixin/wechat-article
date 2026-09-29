@@ -27,6 +27,7 @@ description: '公众号文章写作与 wx 内联版 HTML 排版：写作纪律�
 4. **代码即论据**：核心观点必须配真实代码片段，代码嵌入正文而非附录；代码前后有解释，说明"为什么这样写"。
 5. **每篇一个主题**：逻辑自洽，结构为「问题/背景 → 证据（代码+数据）→ 机制解释 → 结论/延伸」；多篇成系列时每篇可独立阅读。
 6. 语言风格与平台：中文简体；面向公众号读者，避免过于学术化的长难句。
+7. **散文质感（活人感写作）**：非虚构成文按 `references/human-writing-nonfiction.md` 执行——材料门槛（1200 字需五件有来路的材料，不足则研究/追问/缩短）、动笔前五问说话位置、按局部问题推进、中文韵律（主干先交出来/连词减半/名词化还原）、事实边界与改稿七遍；成稿硬禁令（翻案腔/破折号/提示性冒号/黑话）用 `../scripts/check_prose.py` 清零（详见该文件第八、九节）。
 
 ## 二、wx 内联版 HTML 硬规范（微信兼容，违反即推送失败或显示异常）
 
@@ -103,6 +104,8 @@ python scripts/validate_wx_html.py <article.html>
 
 **跨篇重复检测（系列文章）**：`python scripts/check_duplicates.py <Tutorial目录> [--min-len 40] [--threshold 0.8]`，扫描目录内全部 HTML 的跨文件重复段落（字符 4-gram Jaccard）。系列文章多，跨篇照搬段落会稀释每篇独立价值，发布前对新篇跑一次（`--fail` 可让重复时退出码 1）。
 
+**散文硬禁令检测（成稿文本）**：`python scripts/check_prose.py <稿件.md/.txt>`——查翻案句（含变形）、黑话、硬停词、模型路标、破折号与提示性冒号（判定源见 `../references/human-writing-nonfiction.md` 第八节）。在正文纯文本阶段跑（HTML 成稿可提取正文纯文本后检查），失败项清零后再排版。
+
 本地预览（推送前自查排版效果）：
 
 ```bash
@@ -124,6 +127,7 @@ python scripts/wrap_preview.py <article.html>
 ## 五、推送前检查清单（校验脚本兜底 + 人工抽查）
 
 - [ ] `validate_wx_html.py` 输出 ERROR=0（自动）
+- [ ] `check_prose.py` 硬禁令清零（翻案句/黑话/硬停词/冒号/破折号；自动）
 - [ ] 产物为纯 `<section>` 片段，无文档外壳（自动 WARNING）
 - [ ] 无 `<pre>`、无 `<table>`、无 div 伪表格；代码块为 `<section>` + 逐行 `<p>`，表格为条目卡片（自动）
 - [ ] 代码内 `<` `>` `&` 已转义；缩进用 `&nbsp;`（自动抽查）
@@ -136,6 +140,6 @@ python scripts/wrap_preview.py <article.html>
 
 ## 六、与其他子技能的关系
 
-- 产出 HTML → `../materials/`（uploadimg 换图）→ `../draft/`（draft-add 推送、draft-get 抽查）→ `../publish/`（发布）。
+- 产出 HTML → `../materials/`（uploadimg 换图）→ `../draft/`（draft-add 推送、draft-get 抽查）；发布走公众号后台手动操作（个人未认证账号发布接口族 48001，见根 `../SKILL.md`「发布」节）。
 - 两个 CLI 均可推送：`../scripts/wx_api.py draft-add`（全能力）与 `../scripts/wx_draft_push.py --html ... --title ... --digest ... [--cover ...]`（简易单命令版）。
-- 读取已发布文章作为参考：`../read/`；查找文章：`../search/`。
+- 读取已发布文章作为参考：`../Read/`；查找文章：`../Search/`。

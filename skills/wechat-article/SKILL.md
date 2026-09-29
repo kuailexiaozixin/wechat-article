@@ -18,11 +18,11 @@ description_en: "Full WeChat article pipeline: writing discipline & wx-compatibl
 
 | 用户需求 | 子技能 | 覆盖能力 |
 |---|---|---|
-| **写**公众号文章、wx 内联版 HTML 排版 | `write/` | 写作纪律（去 AI 味/不虚构）+ 微信兼容 HTML 硬规范（禁 `<pre>`/`<table>`/div 伪表格、表格用条目卡片、内联样式、mmbiz 图一步到位、纯 section 片段）+ `validate_wx_html.py` 确定性校验 + 通用排版主题资产 + 本地预览 |
+| **写**公众号文章、wx 内联版 HTML 排版 | `Write/` | 写作纪律（去 AI 味/不虚构）+ 微信兼容 HTML 硬规范（禁 `<pre>`/`<table>`/div 伪表格、表格用条目卡片、内联样式、mmbiz 图一步到位、纯 section 片段）+ `validate_wx_html.py` 确定性校验 + 通用排版主题资产 + 本地预览 |
 | 制作/推送/查看/删除**草稿** | `draft/` | `draft/*` 全接口 + 参数约束 + 回读核验 + 发布前后台手动设置清单 |
 | 上传**封面/正文图**（换 mmbiz URL） | `materials/` | 封面永久素材 + `uploadimg` + 批量预上传 |
-| 读取/提取/解析某篇公众号文章正文 | `read/` | 四层渐进式提取 + HTML 解析 + 验证墙处理 |
-| 搜索/定位公众号文章或某个公众号 | `search/` | 搜狗 type=1/2 搜索 + 302 跳转还原 |
+| 读取/提取/解析某篇公众号文章正文 | `Read/` | 四层渐进式提取 + HTML 解析 + 验证墙处理 |
+| 搜索/定位公众号文章或某个公众号 | `Search/` | 搜狗 type=1/2 搜索 + 302 跳转还原 |
 
 - 接口与官方文档章节映射、请求体与 article 字段、官方限额：`references/api-docs.md`。
 - 真实失败模式与修复：`references/gotchas.md`（调试前先读）。
@@ -48,12 +48,12 @@ $env:WECHAT_APPID="wx..."; $env:WECHAT_SECRET="..."; $env:WECHAT_AUTHOR="<你的
 1. **`scripts/wx_api.py`** — 全能力 CLI。子命令：`token` · `cover` · `uploadimg` · `draft-add` · `draft-update` · `draft-get` · `draft-list` · `draft-count` · `draft-delete` · `check-perm`（完整用法见各子技能）。
 2. **`scripts/wx_draft_push.py`** — 简易单命令推送：`python wx_draft_push.py --html <path> --title "<标题>" --digest "<摘要>" [--cover <img>]`，自动 token→封面→草稿，成功输出 `DRAFT_OK media_id:`。仅推送；查询/删除走 wx_api.py。
 
-辅助脚本（见各子技能）：`materials/scripts/upload_imgs.py`（批量预上传正文图，一次 token 复用 + 45009 退避）、`materials/scripts/gen_cover.py`（公众号封面生成器，纯几何无文字）、`write/scripts/validate_wx_html.py`（推送前合规校验 + AI 味启发式 WARNING）、`write/scripts/check_duplicates.py`（跨篇重复段落检测）、`write/scripts/render_mermaid.py`（mermaid 渲染，msedge→chrome→默认 Chromium fallback 链）、`write/scripts/wrap_preview.py`（本地预览）、`scripts/check_draft.py`（草稿回读自动核验，推送后必跑）。
+辅助脚本（见各子技能）：`materials/scripts/upload_imgs.py`（批量预上传正文图，一次 token 复用 + 45009 退避）、`materials/scripts/gen_cover.py`（公众号封面生成器，纯几何无文字）、`Write/scripts/validate_wx_html.py`（推送前合规校验 + AI 味启发式 WARNING）、`Write/scripts/check_duplicates.py`（跨篇重复段落检测）、`Write/scripts/check_prose.py`（成稿散文硬禁令检测：翻案句/黑话/硬停词，判定源见 `Write/references/human-writing-nonfiction.md`）、`Write/scripts/render_mermaid.py`（mermaid 渲染，msedge→chrome→默认 Chromium fallback 链）、`Write/scripts/wrap_preview.py`（本地预览）、`scripts/check_draft.py`（草稿回读自动核验，推送后必跑）。
 
 ## 参数/内容硬约束
 
 - 草稿参数：`--title` ≤ **64 字节**（≈21 个汉字）；`--digest` ≤ **120 字符**；`--content` 为本地 HTML 且必须内联样式。
-- 正文 HTML 硬规范、代码块结构、产物形态：见 `write/SKILL.md`（唯一权威定义）。
+- 正文 HTML 硬规范、代码块结构、产物形态：见 `Write/SKILL.md`（唯一权威定义）。
 - 完整接口参数表：`references/api-docs.md`。
 
 ## 发布（个人未认证账号实测：接口族无权限，走后台手动发布）
