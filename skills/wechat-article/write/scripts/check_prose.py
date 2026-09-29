@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""检查中文成稿的硬禁令与常见模型化形状。只报警，不自动改文。"""
+"""检查中文成稿的硬禁令与常见模型化形状。只报警，不自动改文。
+
+词表（HARD_JARGON / HARD_STOPS / PIVOT 等）与 `write/scripts/validate_wx_html.py` 的
+BANNED_WORDS / AI_FLAVOR_PHRASES 更新须同一轮进行，口径见
+`write/references/de-ai-measures.md` 第七节「词表维护规则」。
+"""
 
 from __future__ import annotations
 
@@ -74,6 +79,9 @@ LYRIC_WORDS = (
     "轻盈",
     "赤裸",
     "剥开",
+    "锋利",
+    "坚硬",
+    "柔软",
 )
 
 ROAD_SIGNS = (

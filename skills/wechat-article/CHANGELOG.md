@@ -2,6 +2,16 @@
 
 本技能变更记录（与 git 提交一一对应）。
 
+## 4.2.1（2026-09-28）去 AI 味措施与手段手册 + AI 启发式词表扩充
+
+- **新增 Write/references/de-ai-measures.md**（去 AI 味操作手册）：词汇层六类黑名单与改写思路
+  （空洞评价/权威让步腔/路标总结/万能开头/万能结尾/模型黑话）、句式层十四种 AI 姿势（每条反例→正例）、
+  结构层六特征与破解、内容层三类（假具体/假经历/说得比材料大）、检测工具链分层、按动作改写三步与冷读三问。
+- **validate_wx_html.py**：AI_FLAVOR_PHRASES 由 20 词扩充至 50 词（万能开头/结尾、权威腔、路标总结、
+  排比式抬价等），仍为 WARNING 级不阻断；py_compile 通过。
+- **Write/SKILL.md**：写作纪律第 2 条接入手册引用；根 SKILL.md 不变（check_prose 已在 4.2.0 登记）。
+- 词表维护规则（写入手册第七节）：BANNED_WORDS / AI_FLAVOR_PHRASES / check_prose 硬禁词三处更新须同一轮进行。
+
 ## 4.2.0（2026-09-28）新增「活人感写作」非虚构整合参考 + check_prose 散文硬禁令检测
 
 - **新增 Write/references/human-writing-nonfiction.md**：整理自 KKKKhazix/human-writing v1.1.0（MIT）
