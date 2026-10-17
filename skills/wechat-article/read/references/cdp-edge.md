@@ -6,20 +6,32 @@
 
 ## 1. 读取 DevToolsActivePort（两行都要）
 
-文件位置：`%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort`（`%LOCALAPPDATA%` 即 `C:\Users\<用户名>\AppData\Local`）
+文件位置随平台与 profile 而变，脚本按这张表给出候选：
+
+| 平台 | 默认路径 | 本机是否实测 |
+|---|---|---|
+| win32 | `%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort` | 实测 |
+| darwin | `~/Library/Application Support/Microsoft Edge/DevToolsActivePort` | 未实测（本机无 macOS） |
+| linux | `$XDG_CONFIG_HOME/microsoft-edge/DevToolsActivePort`，`XDG_CONFIG_HOME` 缺省为 `~/.config` | 未实测（本机无 Linux） |
+
+**取不到时不要改脚本**：设环境变量 `WX_EDGE_DEVTOOLS_PORT_FILE` 指向该文件，脚本优先采用它、
+不再看上面任何候选。跨平台与自定义 profile 只靠这个出口，另两条路径只是先替你试一下。
+实现见 `read/scripts/read_wechat.py` 的 `devtools_port_candidates()` 与 `devtools_port_file()`；
+两者都取不到时报错会把已试过的候选路径逐个列出来，不会只说「Edge 没开」。
 
 第一行是端口号，第二行是 WebSocket 路径（`/devtools/browser/<uuid>`）。**两行都要读**，只用端口连不上。
 
 ```python
 import os
-port_file = os.path.expanduser(r"~\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort")
+port_file = os.environ.get("WX_EDGE_DEVTOOLS_PORT_FILE") or next(
+    p for p in devtools_port_candidates() if os.path.exists(p))
 with open(port_file, encoding="utf-8") as f:
     port = int(f.readline().strip())   # 第一行：端口号
     ws_path = f.readline().strip()     # 第二行：WebSocket 路径，如 /devtools/browser/<uuid>
 ws_url = f"ws://127.0.0.1:{port}{ws_path}"
 ```
 
-PowerShell 等价写法：
+win32 上的手工等价写法（路径取本机实测那条）：
 
 ```powershell
 $lines = Get-Content "$env:LOCALAPPDATA\Microsoft\Edge\User Data\DevToolsActivePort"
@@ -65,4 +77,4 @@ cdp(ws, "Target.attachToTarget", {"targetId": tid, "flatten": True})  # 返回 s
 - **Edge 必须已运行**且调试端口有效：`DevToolsActivePort` 文件存在 + 端口监听。文件不存在 = Edge 未启动或未开远程调试，先确认 Edge 运行状态。
 - **HTTP 端点不可用是常态**：`/json/version` 返回 404 属正常（DevToolsActivePort 机制只暴露 WebSocket），不要改用 HTTP 探测。
 - **消息夹带**：连接后 `ws.recv()` 可能先收到 `Target.targetCreated` 等事件消息——按第 3 节的 `id` 循环匹配处理，不要假定首条响应就是应答。
-- 单 URL 重试不超过 3 次（避免触发微信风控）；内容仅供合规场景使用，遵守版权。
+- **本层只导航一次**：CDP 打开一个 target 取一次正文，不在这一层重试撞墙。同一个 URL 的 HTTP 请求上限由第 1–3 层承担（每层 2 次，合计 6 次，见 `read_wechat.py` 的 `HTTP_MAX_PER_URL`），6 次走完不合格才轮到本层；本层再失败就输出诊断停止。内容仅供合规场景使用，遵守版权。

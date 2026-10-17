@@ -31,9 +31,9 @@ python read/scripts/read_wechat.py x --fixture saved.html                 # 离�
 | 3 | Desktop UA + 完整浏览器头（`Accept`/`Accept-Language`/`Accept-Encoding: identity`/`Upgrade-Insecure-Requests`/`Sec-Fetch-*`/`Referer: https://mp.weixin.qq.com/`） | 按 header 完整性风控的页面 |
 | 4 | CDP 浏览器自动化（本机 Edge） | 验证墙文章：页面要在真实浏览器里跑过 JS 才有正文 |
 
-第 4 层的连接序列固化在 `read/references/cdp-edge.md`（自包含，含代码与已验证的坑）：读本机 `%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort`（两行：端口 + WebSocket 路径，UUID 每次重启都变，不能写死）→ 连 `ws://127.0.0.1:<port><path>`（禁止带 Origin）→ `Target.createTarget` → `Target.activateTarget` → `Target.attachToTarget(flatten:true)` → 带 `sessionId` 的 `Runtime.evaluate` 取 `document.documentElement.outerHTML`。**关键坑**：CDP 会在响应流里夹带页面事件消息，必须循环读到 `id` 匹配才算收到应答，单次 `recv()` 会读到别的消息导致 `attachToTarget` 看似失败。
+第 4 层的连接序列固化在 `read/references/cdp-edge.md`（自包含，含代码与已验证的坑）：读 Edge 的 `DevToolsActivePort`（两行：端口 + WebSocket 路径，UUID 每次重启都变，不能写死；默认路径按平台给候选，取不到时用环境变量 `WX_EDGE_DEVTOOLS_PORT_FILE` 直接指向该文件，不改脚本）→ 连 `ws://127.0.0.1:<port><path>`（禁止带 Origin）→ `Target.createTarget` → `Target.activateTarget` → `Target.attachToTarget(flatten:true)` → 带 `sessionId` 的 `Runtime.evaluate` 取 `document.documentElement.outerHTML`。**关键坑**：CDP 会在响应流里夹带页面事件消息，必须循环读到 `id` 匹配才算收到应答，单次 `recv()` 会读到别的消息导致 `attachToTarget` 看似失败。
 
-重试纪律：每层只请求 1 次，仅连接类异常（超时/`URLError`）补 1 次；内容判定不合格不在同一层重试，直接换层。整体不超过「单 URL 3 次」这条线。
+重试纪律（上限在 `read_wechat.py` 的 `LAYER_TRIES` 与 `HTTP_MAX_PER_URL` 里，改这两个常量判据会报红）：第 1–3 层每层最多 2 次网络请求（1 次正常 + 1 次连接类异常补发），内容不合格不在同层重试、直接换层，三层合计最多 **6 次**；第 4 层是浏览器导航，不在这 6 次之内。四层走完仍失败就停手输出诊断。
 
 ## 三、质量门（判「取到了全文」而不是「请求成功了」）
 

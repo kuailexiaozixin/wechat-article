@@ -10,6 +10,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIX = os.path.join(HERE, "fixtures")
+SKIP = None      # run_all.py 读它：非空即计为「跳过」而非「通过」，跳过原因写在里面
 
 
 def _load():
@@ -22,10 +23,12 @@ def _load():
 
 
 def run():
+    global SKIP
     try:
         import playwright  # noqa: F401
     except ImportError:
-        print("qa_mobile 渲染验收：跳过（未安装 playwright，pip install playwright）")
+        SKIP = "未安装 playwright（pip install playwright），渲染验收未跑"
+        print("qa_mobile 渲染验收：跳过（%s）" % SKIP)
         return []
     Q = _load()
     fails = []

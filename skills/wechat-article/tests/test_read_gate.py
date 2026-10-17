@@ -5,6 +5,7 @@
 短文缺发布时间要 FAIL。只测「取到了就算过」等于没测——四例里任何一例判反即报红。
 """
 import importlib.util
+import io
 import os
 import sys
 
@@ -18,6 +19,20 @@ def _load():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _read_rel(*parts):
+    """按磁盘真实名字读技能内文件（发布树把 write/read/Search 收成小写，此处两种布局都要能跑）。"""
+    cur = os.path.normpath(os.path.join(HERE, os.pardir))
+    for p in parts:
+        hit = [n for n in os.listdir(cur) if n.lower() == p.lower()]
+        if not hit:
+            return ""
+        cur = os.path.join(cur, hit[0])
+    if not os.path.isfile(cur):
+        return ""
+    with io.open(cur, encoding="utf-8", errors="replace") as f:
+        return f.read()
 
 
 def page(content_inner, title="测试标题", published="2026-04-18 09:30"):
@@ -99,22 +114,97 @@ def run():
         fails.append("MIN_FULLTEXT_CHARS 已变为 %d，需同步脚本说明与测试"
                      % R.MIN_FULLTEXT_CHARS)
 
-    # 8) CDP 前置检查在没有端口文件时给出明确原因（不是静默跳过）
-    if os.path.exists(os.path.expanduser(
-            r"~\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort")):
+    # 8) CDP 前置检查：端口文件路径不写死单一平台，且取不到时给出明确原因
+    saved = os.environ.pop(R.DEVTOOLS_ENV, None)
+    try:
+        # 8a) 环境变量指定路径优先于任何平台默认候选（跨平台可分发的唯一出口）
+        tmp_port = os.path.join(os.environ.get("TEMP") or "/tmp",
+                                "wx_test_devtools_port_%d.txt" % os.getpid())
+        with io.open(tmp_port, "w", encoding="utf-8", newline="") as f:
+            f.write("9222\n/devtools/browser/test-uuid\n")
+        os.environ[R.DEVTOOLS_ENV] = tmp_port
+        if R.devtools_port_file() != tmp_port:
+            fails.append("%s 指向的文件未被优先采用" % R.DEVTOOLS_ENV)
+        ws = R.devtools_ws_url()
+        if ws != "ws://127.0.0.1:9222/devtools/browser/test-uuid":
+            fails.append("devtools_ws_url 两行拼接结果不符：%s" % ws)
+        os.remove(tmp_port)
+        # 8b) 指定的文件不存在 → 报错要点名环境变量与路径，不能只报候选目录
+        os.environ[R.DEVTOOLS_ENV] = tmp_port
+        try:
+            R.devtools_port_file()
+            fails.append("指定的端口文件不存在时未报错")
+        except Exception as e:
+            if R.DEVTOOLS_ENV not in str(e) or tmp_port not in str(e):
+                fails.append("报错未点名 %s 与路径：%s" % (R.DEVTOOLS_ENV, e))
+        # 8c) 端口文件只有一行 → 必须报「内容不完整」，不能拼出一个缺路径的 ws 地址
+        with io.open(tmp_port, "w", encoding="utf-8", newline="") as f:
+            f.write("9222\n")
+        os.environ[R.DEVTOOLS_ENV] = tmp_port
         try:
             ws = R.devtools_ws_url()
-            if not ws.startswith("ws://127.0.0.1:"):
-                fails.append("devtools_ws_url 返回值异常：%s" % ws)
+            fails.append("端口文件缺一行却返回了地址：%s" % ws)
         except Exception as e:
-            fails.append("端口文件存在却取不到 ws 地址：%s" % e)
-    else:
+            if "内容不完整" not in str(e):
+                fails.append("缺一行时的报错没说明是内容不完整：%s" % e)
+        os.remove(tmp_port)
+        # 8d) 未指定时按当前平台的候选找；候选全不存在 → 报错说明缺哪个前提
+        os.environ.pop(R.DEVTOOLS_ENV)
+        real_cands = R.devtools_port_candidates()
+        if not any(os.path.exists(p) for p in real_cands):
+            try:
+                R.devtools_ws_url()
+                fails.append("无端口文件时 devtools_ws_url 未报错")
+            except Exception as e:
+                if "Edge" not in str(e) and "DevToolsActivePort" not in str(e):
+                    fails.append("报错未说明缺哪个前提：%s" % e)
+        # 8e) 候选路径必须跟着当前平台走：非 win32 不得给出 AppData 那一条
+        #     （按 sys.platform 现取现判，所以同一份判据在三种平台上都跑得动）
+        saved_platform, R.sys.platform = R.sys.platform, "win32"
         try:
-            R.devtools_ws_url()
-            fails.append("无端口文件时 devtools_ws_url 未报错")
-        except Exception as e:
-            if "Edge" not in str(e) and "DevToolsActivePort" not in str(e):
-                fails.append("报错未说明缺哪个前提：%s" % e)
+            win = R.devtools_port_candidates()
+            R.sys.platform = "darwin"
+            mac = R.devtools_port_candidates()
+            R.sys.platform = "linux"
+            lnx = R.devtools_port_candidates()
+        finally:
+            R.sys.platform = saved_platform
+        if not any("User Data" in p for p in win):
+            fails.append("win32 候选里没有 Edge 的 User Data 路径：%s" % win)
+        for label, cands in (("darwin", mac), ("linux", lnx)):
+            if any("AppData" in p or "User Data" in p for p in cands):
+                fails.append("%s 平台给出了 Windows 路径：%s" % (label, cands))
+            if not cands:
+                fails.append("%s 平台没有候选路径" % label)
+        # 三个平台必须给出三种形状：某一家的分支塌了（`if False`，或 win32 判据恒真）会让其中
+        # 两行变相同，靠「两两不同」把它们揪出来
+        if len({tuple(win), tuple(mac), tuple(lnx)}) != 3:
+            fails.append("三个平台的候选路径没有两两不同，平台分支已塌：win32=%s darwin=%s linux=%s"
+                         % (win, mac, lnx))
+        if not any("Library" in p for p in mac):
+            fails.append("darwin 候选里没有 macOS 的 Library 目录：%s" % mac)
+        if not any("microsoft-edge" in p for p in lnx):
+            fails.append("linux 候选里没有 Edge 的配置目录名：%s" % lnx)
+    finally:
+        os.environ.pop(R.DEVTOOLS_ENV, None)
+        if saved is not None:
+            os.environ[R.DEVTOOLS_ENV] = saved
+
+    # 9) 重试上限三处口径同值：常量、脚本 docstring、两份文档必须写同一个数
+    import inspect
+    default_tries = inspect.signature(R.http_get).parameters["tries"].default
+    if default_tries != R.LAYER_TRIES:
+        fails.append("http_get 默认 tries=%s 与常量 LAYER_TRIES=%s 不一致，上限改了行为没跟"
+                     % (default_tries, R.LAYER_TRIES))
+    if R.HTTP_MAX_PER_URL != 3 * R.LAYER_TRIES:
+        fails.append("HTTP_MAX_PER_URL=%s 不等于三层 × 每层 %s 次"
+                     % (R.HTTP_MAX_PER_URL, R.LAYER_TRIES))
+    want = "%d 次" % R.HTTP_MAX_PER_URL
+    for label, text in (("read_wechat docstring", R.__doc__ or ""),
+                        ("read/SKILL.md", _read_rel("read", "SKILL.md")),
+                        ("read/references/cdp-edge.md", _read_rel("read", "references", "cdp-edge.md"))):
+        if want not in text:
+            fails.append("%s 没写出合计上限 %s（常量已改或口径漏同步）" % (label, want))
 
     print("read_wechat 质量门/转换测试：%d 项失败" % len(fails))
     for f in fails:

@@ -1,6 +1,99 @@
 # CHANGELOG — wechat-article
 
-本技能变更记录（与 git 提交一一对应）。
+本技能变更记录。**对应关系只到发布线**：`main` 与 `rel-x.y.z` 分支上是「一个版本 = 一个提交 = 一个 tag」，本文件的每个版本段落对应发布线上那一个提交；本地安装目录所在的 `master` 线是工作树快照，按同一版本号提交、不参与发布。两条线没有共同祖先（`git rev-list --max-parents=0 --all` 给出 `8bc11a3` 与 `92a41af` 两个根），跨线 merge/rebase 没有定义，不要尝试。版本号只用在 tag 上，分支一律 `rel-` 前缀——此前 `refs/heads/v4.3.0` 与 `refs/tags/v4.3.0` 同名，本轮改名 `rel-4.3.0`。
+
+## 4.5.0（2026-10-17）发布口径落进判据与文档 + 读取层跨平台解耦 + 三处判据补漏
+
+本轮不新增能力，把上一轮批判里成立的十一处逐条改掉：能在仓库里变成判据的做成判据，不能的写清口径与归属。
+
+- **行尾收成一种**：`CHANGELOG.md` 此前本地 587 个 CRLF、0 个裸 LF，是全树唯一例外，而发布链路
+  会把它改写成 LF——「发布物与本地逐字节一致」这一条对它永远不成立，且没有任何一处文档说明它为什么
+  是 CRLF。本轮转成 LF（587 行，字节 59655→59068，只差 587 个 `CR`，正文逐行未变），发布仓库根加
+  `.gitattributes`（全树 `text=lf`）把这条写死在检出行为里。
+- **大小写双轨加了判据**：本地是 `write/ read/ search/`，发布树按 gh skill 的 `skills/<name>/` 结构
+  收成小写，18 个路径两头不一致，Windows 文件系统不敏感、Linux/macOS 克隆后照文档跑就 file not found。
+  `tests/test_evals_routes.py` 新增第 3 件事：全树文本里的顶层目录引用（`write/…` 斜杠式与 `"read"`
+  引号式，本轮核对 321 处）与磁盘目录名**逐字符**比对，大小写不符或路径不存在即报红；同一份判据在
+  大写树与小写树都跑通，所以「发布物由本地树映射而来」不再靠人工约定。存在性只查「像路径」的引用
+  （末段带 `.ext` 或原文以 `/` 结尾），因为 `draft/add`、`draft/batchget` 是微信接口名、
+  全由顶层目录名串起来的写法是散文并列；`os.path.join(HERE, os.pardir, "write", …)` 这种拼出来的
+  加载路径不在本判据覆盖内（不是一个连续字符串），那一类由加载方测试自己炸成执行异常。
+- **读取第四层不再写死 Windows 路径**：`read_wechat.py` 的 `devtools_ws_url()` 原先固定
+  `~\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort`，号称可分发的技能在 macOS/Linux 上
+  这一层必失败且无分支提示。现在按 `sys.platform` 给候选，新增两个符号
+  `devtools_port_candidates()`（win32 那条本机实测；darwin/linux 两条按 Edge profile 目录惯例给出，
+  **未跨平台实测**）与 `devtools_port_file()`（环境变量 `WX_EDGE_DEVTOOLS_PORT_FILE` 优先，
+  指不到时报错点名该变量与路径）。判据在 `tests/test_read_gate.py` 第 8 节，按 8a–8e 五向断言：
+  环境变量覆盖优先、指空文件报错点名、两行缺一报「内容不完整」、候选全不存在时报错点名前提、
+  三平台候选两两不同（分支塌成一条即红）。`read/SKILL.md` 与 `read/references/cdp-edge.md` 同步。
+- **重试上限从口头改成实现值**：`read/SKILL.md` 与 `cdp-edge.md` 都写「单 URL 不超过 3 次」，而
+  `http_get(tries=2)` × 第 1–3 层的实际上限是 6 次、第 4 层是浏览器导航不计入。现在写 6 次，并把数
+  钉进常量 `LAYER_TRIES` / `HTTP_MAX_PER_URL`；`test_read_gate.py` 第 9 节要求常量、
+  `http_get` 默认值、脚本 docstring、两份文档五处同值，改任一处而其余没跟就报红。
+- **跳过不算通过**：`test_qa_mobile.py:26` 未装 playwright 时 `return []`，被 `run_all` 计成通过，
+  于是「判据文件 8 个，失败 0 项」证明不了 8 个都跑过（上一轮交付里就这么引用过一次）。现在
+  `run()` 把原因写进模块全局 `SKIP`，`tests/run_all.py` 汇总改成「判据文件 N 个：通过 X · 跳过 Y ·
+  失败 Z 项」，有跳过时末行明写「不能当通过引用」。
+- **Search 的研究记录出正文**：`search/SKILL.md` 汉字 4278、非空行 74（`write/SKILL.md` 是 889/45），
+  正文里装的是 26 用例样本、判定纪律、七项未判定，是研究记录而不是工作流，且是五个子技能里唯一没有
+  `references/` 的。新建 `search/references/sogou-probe.md`（1725 汉字）收样本明细、
+  「为什么不做到页去重/不早停」、预热 A/B、拦截页形态、票据存活时长与七项未判定各自缺什么证据；
+  正文每格只留结论并指过去，正文降到 3902 汉字。搬走的段落逐段在新文件有对应小节，没有删事实。
+- **跨子技能依赖登记进根**：`scripts/wx_draft_push.py` 的推送闸口按目录名加载
+  `write/scripts/validate_wx_html.py` 的 `validate()`，`tests/` 里 `test_prose_pivots.py`、
+  `test_qa_mobile.py`、`test_validate_rules.py`、`test_theme_blocks.py` 四支按目录名取 `write/` 下的
+  脚本与 `write/references/theme-default.md`。`write/` 改名会同时打掉推送闸和这四支判据，而这条边
+  此前没写进任何前置说明；现在写在根 SKILL.md「目录与路由」下面，并由上面那条大小写判据守。
+- **根 SKILL.md 自相矛盾修掉**：一边声明「清单在子技能正文里，根不重复列」，一边在安全习惯第 2 条
+  列出三支 `write/scripts/*.py`。该条改为只写闸的顺序与名字（写作硬禁令 → 排版红线静态校验 →
+  390px 真机渲染 → 推送 → 回读逐字比对），脚本路径归子技能；「不重复列」也收窄成「不重复列有哪些脚本、
+  各自做什么」，与依赖登记那句划清。
+- **用例数不设上界**：`test_evals_routes.py` 原来把 evals 用例数硬卡在 8–10，加第 11 条就报红，而
+  这条约束不是质量判据、只会让下一个人先撞它。改成只卡下界（少于 8 条 = 覆盖面塌了）。
+- **发布工具**：同步脚本不进技能仓库，也不再放在系统临时目录（此前 `Temp/sync_release.py` 写死含
+  本机用户名的 SRC/DST，清一次临时目录等于发布能力归零）。工具改为路径全部由命令行给、脚本内不含
+  任何绝对路径，新增 `--check-only` 逐文件核对发布树；本轮用它对 v4.4.0 的发布树实测同步前状态：
+  **应交付 52 个文件，逐字节相同 41 个，内容有差异 10 个（9 个本轮改过的文件 + `SKILL.md` 的版本号），
+  目标缺失 1 个（新增的 `search/references/sogou-probe.md`），目标多余 0 个**；同步后复核为
+  逐字节相同 52 个、发布树内残留大写目录引用 0 处。仓库里留下的是映射口径本身
+  （发布仓库根 README）与守它的判据，两者合起来足够重建发布树，不依赖某个脚本文件是否存在。
+  仓库内不写绝对路径、不写本机用户名，个人环境留在仓库外。
+- **发布仓库根补齐**：`README.md` 三处指向不存在的东西，逐处按实测改写——「`gh >= 2.90`」换成
+  本机实测版本（`gh 2.101.0`，`gh skill install --help` 可查）；Claude Code 的
+  `/plugin marketplace add` 那行删掉，仓库里没有 `.claude-plugin/marketplace.json`，那条命令在这里
+  没有可核验的落点；「下载 Release 归档」改成 tag 归档 URL 本体，并实测 `…/archive/refs/tags/v4.4.0.zip`
+  返回 200（`codeload` 重定向），因为 Releases 的自定义资产数是 0，只有 tag 归档真的能下。
+  新增两节：「目录名与行尾口径」写清小写化规则、谁守它（`tests/test_evals_routes.py`，小写树与大写树都跑）、
+  `.gitattributes` 钉 LF、以及同步脚本为什么在仓库外；「测试与评测」补上汇总行的含义与「跳过不计入通过」。
+  另记一条发布线缺口：本轮 `gh release list` 实测最新 release 是 v4.3.1，远端 tag `v4.4.0` 存在但没有对应
+  release（那次只推了 tag），v4.4.0 的 release 按已存在的 tag 补建。
+- **仓库根新增 `.gitattributes` 与 Linux CI**：`.gitattributes` 用 `* text=auto eol=lf` 把检出行为钉成 LF，
+  图像与压缩包声明 binary；`.github/workflows/verify.yml` 在 `ubuntu-latest` 上跑 `python tests/run_all.py`
+  （`PYTHONUTF8=1`，无凭据、无网络），这一跑同时是那条大小写判据的异地验证——Linux 文件系统大小写敏感，
+  本地 Windows 上「文件能打开」证明不了引用与磁盘名逐字符一致。CI 上没有浏览器，`test_qa_mobile.py`
+  会打 SKIP 并计入「跳过」，汇总行不会把它写成通过。
+- **个人敏感信息复扫**：发布前逐字符扫九类模式——本机用户名、`AppData`、盘符绝对路径、GitHub
+  token 前缀字样、公众号 AppID 形态 `wx[0-9a-f]{16}`、32 位十六进制串、邮箱、IPv4。本地树与
+  发布树各扫一遍，两边逐类相同：用户名 0、盘符绝对路径 0、AppID 0、邮箱 0、真实 token 0。
+  剩下的命中全部有出处——`AppData` 是 `%LOCALAPPDATA%`、`os.path.join(home, "AppData", "Local")`
+  与文档里的 `~/Library/Application Support/...`、`$XDG_CONFIG_HOME` 这类占位写法；IPv4 是回环
+  `127.0.0.1` 和 UA 串里的 Chrome 版本号（`120.0.0.0` 那种四段全带点，不是地址）；32 位十六进制
+  集中在 `tests/fixtures/sogou_type2_sample.html`，是搜狗结果页自带的静态资源哈希，随页面快照原样
+  存进来（本地树与发布树各 20 处）。扫描时唯一命中的人名是 4.0.5 段落里那句
+  「示例作者名更新为实际使用值」后面跟着的真名——本轮删掉，删后两棵树的人名命中为 0：
+  作者名不属于变更说明，留在一个对外分发的仓库里没有用途。扫描脚本与发布工具放在仓库外
+  （它的规则里就写着本机用户名），技能目录内不留任何绝对路径。
+- **验证**：`tests/run_all.py` 在本地大写树与发布小写树各跑一遍，两次都是「判据文件 8 个：通过 8 ·
+  跳过 0 · 失败 0 项」；同步后 `--check-only` 复核 52 个文件逐字节相同、发布树内大写目录引用 0 处。
+  变异核验在隔离副本树跑
+  12 个用例，全部被检出、0 漏：环境变量指定被忽略、报错不点名变量、重试常量改了文档没跟、常量改了
+  行为没跟、`darwin` 分支塌成 `if False`、`win32` 分支恒真、端口文件两行校验被删、文中大小写与磁盘
+  不符、被引用文件删除（断链）、evals 删到 8 条仍绿（证明上界已撤）与删到 7 条报红（下界仍在）、
+  缺 playwright 时汇总把「跳过」单列。
+- **遗留**：`check_duplicates.py`、`render_mermaid.py`、`wrap_preview.py`、`gen_cover.py`、
+  `upload_imgs.py` 五支脚本仍无判据（后两支直接打接口，出错消耗配额）；搜狗那七项未判定要等本机 IP
+  冷却后按 `search/references/sogou-probe.md` 第 7 节逐格复采；darwin/linux 两条 Edge 候选路径未跨平台
+  实测，跨平台用户先按 `WX_EDGE_DEVTOOLS_PORT_FILE` 指定；结构哨兵只判数量关系，不判语义字段错位。
 
 ## 4.4.0（2026-10-17）搜狗搜索第二轮实测 + 时间过滤、结构哨兵、票据时刻
 
@@ -241,7 +334,7 @@
   的用户 `draft-add` 必然报 `45110 author size out of limit`。修复：两脚本默认作者改为空，
   author 为空时**整体省略该字段**（不再发送）；docstring 与根 SKILL.md 同步更新。
   实测：配置 `WECHAT_AUTHOR` 后 29 篇全部推送成功。
-- **SKILL.md 示例作者名**更新为实际使用值「周贺新」。
+- **SKILL.md 示例作者名**更新为实际使用值（4.5.0 起该姓名从本文件删除：个人姓名不是变更依据）。
 - **实测确认可执行（2026-09-21，29 篇全链路）**：token / cover（永久素材）/ uploadimg（正文图
   换 mmbiz URL）/ draft-add / draft-get / draft-count / draft-list / draft-delete /
   check_draft（回读核验）/ validate_wx_html 全部按文档行为工作。

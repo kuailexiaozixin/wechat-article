@@ -1,7 +1,7 @@
 ---
 name: wechat-article
 description: '微信公众号文章全链路技能：按写作纪律成文并排成微信兼容的 HTML 正文片段，上传封面与正文图，把文章推进草稿箱并回读核验，也能读取已有文章正文、按关键词搜索公众号文章。用户提出写一篇公众号文章、公众号排版、推送或管理草稿、读取与搜索公众号文章时使用。发布接口族对个人未认证账号无权限，发布走公众号后台手动。'
-version: 4.4.0
+version: 4.5.0
 ---
 
 # 微信公众号文章（wechat-article）
@@ -21,6 +21,13 @@ version: 4.4.0
 | 按关键词**搜索**文章 | `search/` | 搜狗 `type=2` 检索与跳转还原 |
 
 每行的能力细则、命令、参数与验收判据只在对应子技能正文里写一份；本表不重复展开。
+
+**跨子技能依赖（改名或删文件前先查这三条边）**：`scripts/wx_draft_push.py` 的推送闸口加载
+`write/scripts/validate_wx_html.py` 的 `validate()`（复用，不重复实现）；`write/references/theme-default.md`
+是 `tests/test_theme_blocks.py` 逐字比对的唯一来源；`tests/` 的 `test_prose_pivots.py`、`test_qa_mobile.py`、
+`test_validate_rules.py`、`test_theme_blocks.py` 四支按目录名加载 `write/scripts/` 下的脚本。
+`write/` 一改，推送闸与这四支判据同时受影响，不是只影响写作侧——这条边由 `tests/test_evals_routes.py`
+的「路径引用大小写核对」守：引用与磁盘目录名逐字符不符即报红。
 
 - 接口与官方文档章节映射、请求体与 article 字段、官方限额：`references/api-docs.md`。
 - 真实失败模式与修复：`references/gotchas.md`（调试前先读）。
@@ -51,7 +58,8 @@ $env:WECHAT_APPID="wx..."; $env:WECHAT_SECRET="..."; $env:WECHAT_AUTHOR="<你的
 
 三个入口脚本都支持 `-h/--help`：打印用法即退出，不读凭据、不发请求。`wx_api.py` 的未知子命令同样先于 token 请求报错。
 
-其余脚本一律归属各子技能，清单在子技能正文里，根不重复列：`write/` 七支（写作硬禁令、排版红线校验、390px 渲染、组件产出、mermaid、本地预览、跨篇查重）、`materials/` 两支（批量正文图上传、封面生成）、`read/` 与 `search/` 各一支取页与搜索脚本。
+其余脚本一律归属各子技能，用法与判据在子技能正文各写一份，根不重复列（`write/`、`materials/`、`read/`、`search/` 各自的 `scripts/`）。
+上面「跨子技能依赖」那一节是另一件事：它按文件名列出会被连带改动的边，只登记依赖、不展开用法。
 
 ## 参数/内容硬约束
 
@@ -70,8 +78,8 @@ $env:WECHAT_APPID="wx..."; $env:WECHAT_SECRET="..."; $env:WECHAT_AUTHOR="<你的
 ## 操作前安全习惯（三条，跨子技能通用）
 
 1. **实查草稿箱**：草稿箱可能被后台/他处外部删改。凡操作具体草稿前，先 `draft-count` + `draft-list` 确认 `media_id` 与标题一一对应，**不凭记忆里的 media_id 直接操作**。
-2. **推送前三道闸，推送后一道核验**（顺序固定，跨子技能才需要这条总线；每道闸各自查什么、怎么改，归对应子技能）：
-   `write/scripts/check_prose.py` → `write/scripts/validate_wx_html.py` → `write/scripts/qa_mobile.py` → 推送（`scripts/wx_draft_push.py` 内置同一道 validate，ERROR>0 直接退出、不取 token）→ `scripts/check_draft.py --source`。任一 FAIL 就修复后重推，不带错交付。
+2. **推送前三道闸，推送后一道核验**（顺序固定，跨子技能才需要这条总线；每道闸各自查什么、用什么脚本查、怎么改，归 `write/SKILL.md` 与 `scripts/` 三个入口的用法行）：
+   写作硬禁令 → 排版红线静态校验 → 390px 真机渲染 → 推送（`wx_draft_push.py` 内置同一道排版校验，ERROR>0 直接退出、不取 token）→ 回读逐字比对（`check_draft.py --source`）。任一 FAIL 就修复后重推，不带错交付。
 3. **发布权限预判**：见上节「发布」判据，不重复重试。
 
 跨子技能的工作流细节一律在子技能正文：推送与回读、发布前手动四项见 `draft/SKILL.md`；写作与排版九步见 `write/SKILL.md`。

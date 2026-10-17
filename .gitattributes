@@ -1,0 +1,13 @@
+# 全树统一 LF。发布物由本地安装树映射生成时已按 LF 写盘，这里把「检出」也钉成 LF，
+# 这样 Windows 克隆不会把 .py/.md 变成 CRLF，下一次同步再提交时就不会带 500 行的行尾噪声。
+* text=auto eol=lf
+
+# 二进制不做行尾与编码处理
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.zip binary

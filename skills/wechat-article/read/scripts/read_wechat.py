@@ -17,8 +17,10 @@
     短文豁免：长度不足但同时拿到「标题 + 发布时间 + 正文节点」时判通过，
     打 NOTE 说明按短文放行——公众号确有短文的真实存在，一刀切会误杀。
 
-重试纪律：同一 URL 每层只做 1 次网络请求，仅连接类异常补 1 次；
-四层走完仍失败就输出诊断并停止，不循环撞墙（实测反复请求会加深风控）。
+重试纪律（上限由代码里的 LAYER_TRIES / HTTP_MAX_PER_URL 给出，不是口头约定）：
+    第 1–3 层每层最多 2 次网络请求（1 次正常 + 1 次连接类异常补发），内容不合格不在同层重试、
+    直接换层，三层合计最多 6 次；第 4 层是浏览器导航，不在这 6 次之内。
+    四层走完仍失败就输出诊断并停止，不循环撞墙（实测反复请求会加深风控）。
 
 输出：Markdown + YAML frontmatter（source_url / title / author / account /
 published / cover / digest / layer / chars）。依赖优先级：
@@ -35,6 +37,8 @@ import urllib.parse
 import urllib.request
 
 MIN_FULLTEXT_CHARS = 800          # 正文长度参考阈值（经验值，可 --min-chars 覆盖）；短文豁免见 __doc__
+LAYER_TRIES = 2                   # 单层最多请求次数：1 次正常 + 1 次连接类异常补发
+HTTP_MAX_PER_URL = 3 * LAYER_TRIES   # 第 1–3 层对同一个 URL 的请求上限；第 4 层走浏览器导航，不计入
 CAPTCHA_MARKERS = ("wappoc_appmsgcaptcha", "环境异常", "完成验证后即可继续访问", "验证码拦截")
 CONTENT_RX = re.compile(r'id="js_content"', re.I)
 
@@ -55,7 +59,7 @@ def _decode(raw, content_type=""):
     return raw.decode("utf-8", "replace")
 
 
-def http_get(url, ua, extra=None, referer=None, timeout=25, tries=2, cookie_jar=None):
+def http_get(url, ua, extra=None, referer=None, timeout=25, tries=LAYER_TRIES, cookie_jar=None):
     """单层取页：连接类异常补 1 次，内容问题不在此重试。"""
     headers = {"User-Agent": ua, "Accept": "text/html,application/xhtml+xml,"
                                          "application/xml;q=0.9,*/*;q=0.8",
@@ -103,11 +107,40 @@ def layer3(url):
 
 # ---------------- 第 4 层：CDP（按 read/references/cdp-edge.md 固化的连接序列） ----------------
 
+DEVTOOLS_ENV = "WX_EDGE_DEVTOOLS_PORT_FILE"
+
+
+def devtools_port_candidates():
+    """DevToolsActivePort 的默认位置按平台给出；win32 那条是本机实测，其余两条按
+    Edge 的 profile 目录惯例给出且未跨平台实测，取不到时一律用 DEVTOOLS_ENV 指定。"""
+    home = os.path.expanduser("~")
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA") or os.path.join(home, "AppData", "Local")
+        return [os.path.join(local, "Microsoft", "Edge", "User Data", "DevToolsActivePort")]
+    if sys.platform == "darwin":
+        return [os.path.join(home, "Library", "Application Support",
+                             "Microsoft Edge", "DevToolsActivePort")]
+    cfg = os.environ.get("XDG_CONFIG_HOME") or os.path.join(home, ".config")
+    return [os.path.join(cfg, "microsoft-edge", "DevToolsActivePort")]
+
+
+def devtools_port_file():
+    override = (os.environ.get(DEVTOOLS_ENV) or "").strip()
+    if override:
+        if not os.path.exists(override):
+            raise RuntimeError("%s 指向的文件不存在: %s" % (DEVTOOLS_ENV, override))
+        return override
+    tried = devtools_port_candidates()
+    for path in tried:
+        if os.path.exists(path):
+            return path
+    raise RuntimeError("DevToolsActivePort 不存在（Edge 未运行或未开远程调试），已试: %s；"
+                       "profile 不在默认位置时设 %s 指向该文件"
+                       % (" | ".join(tried), DEVTOOLS_ENV))
+
+
 def devtools_ws_url():
-    port_file = os.path.expanduser(
-        r"~\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort")
-    if not os.path.exists(port_file):
-        raise RuntimeError("DevToolsActivePort 不存在（Edge 未运行或未开远程调试）: " + port_file)
+    port_file = devtools_port_file()
     with open(port_file, encoding="utf-8") as f:
         port = f.readline().strip()
         ws_path = f.readline().strip()      # 两行都要；只用端口连不上，UUID 每次重启都变

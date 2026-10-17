@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
-"""evals/evals.json 路由用例的可证伪核对。
+"""evals/evals.json 路由用例的可证伪核对 + 全树路径引用的大小写核对。
 
-两件事：
+三件事：
   1. 用例里写到的每个仓库路径必须真实存在（文档改名/删文件而 evals 没跟着改 → 报红）。
   2. 用例里写到的每个 `--长选项` 必须出现在同一用例引用的某个脚本里
      （argparse 声明或 docstring 用法行）——评测量到的命令不能是想象出来的 flag。
+  3. 全树文本里的顶层目录引用（`write/`…`tests/`、以及 `"read"` 这种引号形式）必须与
+     **磁盘上的真实名字逐字符一致**且路径存在。本地是 `write/ read/ search/` 大写布局，
+     发布树按 gh skill 的 `skills/<name>/` 结构收成小写；Windows 文件系统大小写不敏感，
+     「文件能打开」证明不了这一点，Linux/macOS 克隆后才暴露成 file not found。
 """
 import io
 import json
@@ -45,6 +49,73 @@ def flags_of(script_rel):
     return set(FLAG_RX.findall(src))
 
 
+# ---- 第 3 件事：路径引用与磁盘布局逐字符核对（两种布局共用同一份判据） ----
+TOPS = ("write", "read", "search", "draft", "materials", "scripts", "references", "tests", "evals")
+REF_RX = re.compile(r"(?<![A-Za-z0-9_./-])((?:%s)/[A-Za-z0-9_./-]*)" % "|".join(TOPS),
+                    re.IGNORECASE)
+QUOTED_TOP_RX = re.compile(r'"(%s)"' % "|".join(TOPS), re.IGNORECASE)
+TEXT_EXT = (".md", ".py", ".json")
+LAYOUT_SKIP = {"CHANGELOG.md"}   # 历史条目记的是当时的路径实况，可能指向已删文件，不作断链
+
+
+def disk_tops():
+    """磁盘上真实存在的顶层目录名（跳过 `.git` 这类点开头目录），按小写建索引用于逐字符比对。"""
+    return {n.lower(): n for n in os.listdir(ROOT)
+            if os.path.isdir(os.path.join(ROOT, n)) and not n.startswith(".")}
+
+
+def text_files():
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames if d not in (".git", "__pycache__", "node_modules")]
+        for fn in sorted(filenames):
+            rel = os.path.relpath(os.path.join(dirpath, fn), ROOT).replace(os.sep, "/")
+            if fn.endswith(TEXT_EXT) and rel not in LAYOUT_SKIP:
+                yield rel
+
+
+def check_layout():
+    """返回 (失败列表, 核对到的引用数)。
+
+    大小写核对对所有命中做（这才是「双轨」的病根：磁盘上的顶层目录是首字母大写，
+    文中写成了全小写，Windows 打开得了、Linux 克隆过来就是 file not found）；
+    存在性核对只对**像路径**的引用做——末段带点（文件）或原文以 `/` 结尾（目录）。
+    `draft/add`、`draft/batchget` 是微信接口名不是文件，三段的顶层目录并列是散文写法，
+    都归这条规则之外；两段式并列（第二段本身也是顶层目录）同样不查存在性。
+    覆盖面边界：测试脚本用 `os.path.join(HERE, os.pardir, "write", "scripts", ...)` 拼出来的
+    加载路径不在本判据里（那不是一个连续的路径字符串），那种点由加载方测试自己炸——文件不在
+    就是执行异常，run_all 计为失败。
+    """
+    fails, tops, n = [], disk_tops(), 0
+    for rel in text_files():
+        text = io.open(os.path.join(ROOT, rel.replace("/", os.sep)),
+                       encoding="utf-8", errors="replace").read()
+        for m in REF_RX.finditer(text):
+            raw, ref = m.group(1), m.group(1).rstrip("/.-")
+            n += 1
+            segs = ref.split("/")
+            want = tops.get(segs[0].lower())
+            if want is None:
+                fails.append("%s 引用 %r，磁盘上没有这个顶层目录" % (rel, ref))
+                continue
+            if segs[0] != want:
+                fails.append("%s 里 %r 的顶层目录大小写与磁盘不符（磁盘上是 %r）"
+                             % (rel, ref, want))
+                continue
+            looks_like_path = "." in segs[-1] or raw.endswith("/")
+            prose_list = all(s.lower() in tops for s in segs)   # 全是顶层目录名 = 散文并列
+            if looks_like_path and not prose_list and not os.path.exists(os.path.join(ROOT, *segs)):
+                fails.append("%s 引用 %r，路径不存在（断链）" % (rel, ref))
+        for m in QUOTED_TOP_RX.finditer(text):
+            tok = m.group(1)
+            n += 1
+            want = tops.get(tok.lower())
+            if want is None:
+                fails.append("%s 出现引号目录名 %r，磁盘上没有这个顶层目录" % (rel, tok))
+            elif tok != want:
+                fails.append("%s 里引号目录名 %r 与磁盘上的 %r 大小写不符" % (rel, tok, want))
+    return fails, n
+
+
 def run():
     fails = []
     if not os.path.exists(EVALS):
@@ -55,8 +126,10 @@ def run():
     cases = data.get("evals", [])
     if data.get("skill_name") != "wechat-article":
         fails.append("skill_name 应为 wechat-article，实为 %r" % data.get("skill_name"))
-    if not 8 <= len(cases) <= 10:
-        fails.append("用例数 %d 不在 8–10 区间" % len(cases))
+    if len(cases) < 8:
+        # 只设下界不设上界：用例少说明覆盖面塌了；上界不属于质量判据，
+        # 卡住它会让「再加一条用例」变成必须先改判据。
+        fails.append("用例数 %d 少于 8 条，覆盖面已缩水" % len(cases))
     ids = [c.get("id") for c in cases]
     if ids != list(range(1, len(cases) + 1)):
         fails.append("id 不连续/重复：%s" % ids)
@@ -94,8 +167,12 @@ def run():
             fails.append("用例 #%s 用到 --%s，但所引脚本 %s 中无此选项声明"
                          % (c.get("id"), flag, scripts or "（未引用任何 .py）"))
 
+    layout_fails, n_refs = check_layout()
+    fails += layout_fails
     print("evals 路由核对：%d 条用例 · 引用路径 %d 个 · 核对长选项 %d 个"
           % (len(cases), len(checked_paths), len(checked_flags)))
+    print("路径引用大小写核对：%d 处（顶层目录 %s）"
+          % (n_refs, "/".join(sorted(disk_tops().values()))))
     for m in fails:
         print("FAIL", m)
     print("evals 路由判据：%d 项失败" % len(fails))
