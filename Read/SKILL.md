@@ -55,7 +55,11 @@ python Read/scripts/read_wechat.py x --fixture saved.html                 # 离�
 
 - 第 1–3 层：Python 标准库（`urllib` + `re`），无第三方硬依赖。
 - 第 4 层：`websocket-client`（`pip install websocket-client`）+ 本机 Edge 已开远程调试端口。
-- 可选：`beautifulsoup4`（缺失走正则降级路径）。
+- 可选：`beautifulsoup4`（`pip install beautifulsoup4`）。缺它仍能取到正文，但 `parse_mode` 落到
+  `regex-degraded`：输出的 Markdown 只有段落文本，标题层级、加粗/斜体、列表、引用、代码块围栏、
+  图片地址都不产出。要结构化正文就得装 bs4。`tests/test_read_gate.py` 按「有没有 bs4」分两支断言
+  （有 bs4 判结构七项，无 bs4 判上面这条降级契约），并在日志里打印走的是哪一支——
+  同一份判据在无 bs4 的机器上会报红而不是伪装通过，也不会拿降级产物去比 bs4 产物。
 
 ## 六、脆弱性（用前即时验证）
 
