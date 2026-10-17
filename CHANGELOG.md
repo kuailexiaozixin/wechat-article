@@ -73,14 +73,13 @@
   本地 Windows 上「文件能打开」证明不了引用与磁盘名逐字符一致。CI 上没有浏览器，`test_qa_mobile.py`
   会打 SKIP 并计入「跳过」，汇总行不会把它写成通过。
 - **个人敏感信息复扫**：发布前逐字符扫九类模式——本机用户名、`AppData`、盘符绝对路径、GitHub
-  token 前缀（`ghp_`/`gho_`/`ghu_`/`ghs_`/`github_pat_`）、公众号 AppID 形态 `wx[0-9a-f]{16}`、
-  32 位十六进制串、邮箱、IPv4。本地树与发布树各扫一遍，两边逐类相同：用户名 0、盘符绝对路径 0、
-  AppID 0、邮箱 0、真实 token 0。剩下四类命中 44 处全部有出处——`AppData` 9 处是 `%LOCALAPPDATA%`、
-  `os.path.join(home, "AppData", "Local")` 与文档里的 `~/Library/Application Support/...`、
-  `$XDG_CONFIG_HOME` 这类占位写法；IPv4 14 处是回环 `127.0.0.1` 和 UA 串里的 Chrome 版本号
-  （`120.0.0.0` 那种四段全带点，不是地址）；32 位十六进制 20 处集中在
-  `tests/fixtures/sogou_type2_sample.html`，是搜狗结果页自带的静态资源哈希，随页面快照原样存进来；
-  `github_pat_` 1 处是本条在列举被扫的前缀本身。扫描时唯一命中的人名是 4.0.5 段落里那句
+  token 前缀字样、公众号 AppID 形态 `wx[0-9a-f]{16}`、32 位十六进制串、邮箱、IPv4。本地树与
+  发布树各扫一遍，两边逐类相同：用户名 0、盘符绝对路径 0、AppID 0、邮箱 0、真实 token 0。
+  剩下的命中全部有出处——`AppData` 是 `%LOCALAPPDATA%`、`os.path.join(home, "AppData", "Local")`
+  与文档里的 `~/Library/Application Support/...`、`$XDG_CONFIG_HOME` 这类占位写法；IPv4 是回环
+  `127.0.0.1` 和 UA 串里的 Chrome 版本号（`120.0.0.0` 那种四段全带点，不是地址）；32 位十六进制
+  集中在 `tests/fixtures/sogou_type2_sample.html`，是搜狗结果页自带的静态资源哈希，随页面快照原样
+  存进来（本地树与发布树各 20 处）。扫描时唯一命中的人名是 4.0.5 段落里那句
   「示例作者名更新为实际使用值」后面跟着的真名——本轮删掉，删后两棵树的人名命中为 0：
   作者名不属于变更说明，留在一个对外分发的仓库里没有用途。扫描脚本与发布工具放在仓库外
   （它的规则里就写着本机用户名），技能目录内不留任何绝对路径。
