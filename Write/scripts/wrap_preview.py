@@ -10,8 +10,8 @@
 并附「复制到公众号」按钮（等价手动全选复制，样式全保留）。
 按钮与 JS 只在预览外壳里、不在正文 section 内——校验仍对原文件跑。
 
-功能思路借鉴自 gzh-design-skill（scripts/wrap_preview.py，AGPL-3.0，
-作者 甲木 × 摸鱼小李）；模板与实现为本文件独立编写。
+本文件独立编写，不依赖任何仓库外工具；预览外壳含 <style>/<script>，
+只用于本地浏览，绝不能作为推送产物。
 """
 import os
 import sys

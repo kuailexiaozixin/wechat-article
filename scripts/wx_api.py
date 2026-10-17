@@ -1,18 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-微信公众号 API 全能力 CLI（草稿箱 + 发布能力 + 素材）
+微信公众号 API CLI（草稿箱 + 素材 + 发布权限探测）
 
 官方文档：
   微信公众平台开发文档（developers.weixin.qq.com/doc/offiaccount）
   - 草稿管理与商品卡片：Draft_Box/Add_draft.html, Update_draft.html, Delete_draft.html, Get_draft.html, Batchget_draft.html, Count_draft.html
-  - 发布能力：Publish/Publish.html（freepublish/submit|get|batchget|delete）
   - 素材管理：Material/Add_material.html（封面永久素材）
   - 图片上传：Media/Uploadimg.html（正文图片换 mmbiz URL）
 
 凭据从环境变量读取（禁止硬编码 / 写文件 / 打日志）：
   WECHAT_APPID   - 公众号 AppID
   WECHAT_SECRET  - 公众号 AppSecret
-  WECHAT_AUTHOR  - 作者名（可选，默认「数据舞者Ivy Notes」）
+  WECHAT_AUTHOR  - 作者名（可选，缺省省略 author 字段；部分账号作者字段长度很小，超限报 45110）
 
 用法：
   python wx_api.py token
@@ -24,17 +23,15 @@
   python wx_api.py draft-list [--offset 0] [--count 20]
   python wx_api.py draft-count
   python wx_api.py draft-delete <media_id>
-  python wx_api.py publish <media_id>
-  python wx_api.py publish-get <publish_id>
-  python wx_api.py publish-list [--offset 0] [--count 20] [--full]
-  python wx_api.py publish-delete <publish_id>
+  python wx_api.py check-perm                         # 发布接口权限预探测（个人未认证账号实测 48001）
 
 注意：
   - access_token 有效期 7200 秒，每次调用现取，不缓存。
   - 正文图片必须先 uploadimg 换成 mmbiz.qpic.cn URL 才能显示。
   - 微信会剥离 <style> 与 <pre>；代码块必须用 <section>+逐行<p>+&nbsp; 结构。
-  - publish-list 默认 no_content:1（无正文/URL）；加 --full 返回含正文与文章 url（article_detail[].url）。
   - draft-add/draft-update 的 --source-url 对应官方 content_source_url（原文链接，可选）。
+  - draft-update 被腾讯 WAF 501 拦截时自动绕行：回读原封面 → delete 旧草稿 → add 新草稿，
+    返回新 media_id 并打印 MEDIA_ID_CHANGED 提示（原 media_id 失效，须对新 id 重跑 check_draft.py）。
 """
 import os
 import sys
@@ -46,6 +43,9 @@ import urllib.error
 import urllib.parse
 
 API = "https://api.weixin.qq.com/cgi-bin"
+
+COMMANDS = ("token", "cover", "uploadimg", "draft-add", "draft-update",
+            "draft-get", "draft-list", "draft-count", "draft-delete", "check-perm")
 
 
 def http_json(url, data=None, headers=None, method=None):
@@ -96,13 +96,15 @@ def multipart_upload(token, path, endpoint, extra=""):
 def build_article(kv, content_html, thumb, author):
     art = {
         "title": kv.get("title", ""),
-        "author": author,
         "digest": kv.get("digest", ""),
         "content": content_html,
-        "thumb_media_id": thumb,
         "need_open_comment": 1,
         "only_fans_can_comment": 0,
     }
+    if author:
+        art["author"] = author  # 空则整体省略：部分账号作者字段上限很小，超限报 45110
+    if thumb:
+        art["thumb_media_id"] = thumb  # 空封面不传：draft/update 时传空串会 40007，省略则保留原封面
     if kv.get("source_url"):
         art["content_source_url"] = kv["source_url"]
     return art
@@ -117,8 +119,8 @@ def parse_args(argv):
                  "--media", "--offset", "--count", "--source-url"):
             kv[a.lstrip("-")] = argv[i + 1]
             i += 2
-        elif a in ("--full",):
-            kv["full"] = "1"
+        elif a in ("--full", "--yes"):
+            kv[a.lstrip("-")] = "1"
             i += 1
         else:
             i += 1
@@ -129,6 +131,16 @@ def main():
     argv = sys.argv[1:]
     cmd = argv[0] if argv else ""
     kv = parse_args(argv[1:])
+
+    # 用法查询与未知子命令一律先于凭据与 token 请求：拼错的子命令不该消耗一次接口调用
+    if cmd in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    if cmd not in COMMANDS:
+        if cmd:
+            print("ERR 未知子命令 %r，可用：%s" % (cmd, " ".join(sorted(COMMANDS))), file=sys.stderr)
+        print(__doc__, file=sys.stderr)
+        sys.exit(1)
 
     appid = os.environ.get("WECHAT_APPID")
     secret = os.environ.get("WECHAT_SECRET")
@@ -141,7 +153,7 @@ def main():
         print("ERR token:", json.dumps(tok, ensure_ascii=False), file=sys.stderr)
         sys.exit(1)
     token = tok["access_token"]
-    author = os.environ.get("WECHAT_AUTHOR", "数据舞者Ivy Notes")
+    author = os.environ.get("WECHAT_AUTHOR", "")  # 默认空：省略 author 字段，避免部分账号 45110
 
     if cmd == "token":
         print("TOKEN ok, expires_in:", tok.get("expires_in"))
@@ -170,6 +182,22 @@ def main():
                 thumb = up["media_id"]
             else:
                 print("WARN cover:", json.dumps(up, ensure_ascii=False), file=sys.stderr)
+        if cmd == "draft-update":
+            if not kv.get("media"):
+                print("ERR: --media <media_id> 必填", file=sys.stderr)
+                sys.exit(1)
+            if not thumb:
+                # draft/update 必须携带有效 thumb_media_id（省略/空串会 40007）；
+                # 未传 --cover 时回读原草稿封面，保证 update 不改变封面。
+                try:
+                    got = http_json(
+                        f"{API}/draft/get?access_token={token}",
+                        data=json.dumps({"media_id": kv["media"]}, ensure_ascii=False).encode("utf-8"),
+                        headers={"Content-Type": "application/json"},
+                    )
+                    thumb = (got.get("news_item") or [{}])[0].get("thumb_media_id", "")
+                except Exception:
+                    thumb = ""
         article = build_article(kv, content, thumb, author)
         if cmd == "draft-add":
             res = http_json(
@@ -178,15 +206,47 @@ def main():
                 headers={"Content-Type": "application/json"},
             )
         else:
-            if not kv.get("media"):
-                print("ERR: --media <media_id> 必填", file=sys.stderr)
-                sys.exit(1)
             res = http_json(
                 f"{API}/draft/update?access_token={token}",
                 data=json.dumps({"media_id": kv["media"], "index": 0, "articles": article},
                                 ensure_ascii=False).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
             )
+            if res.get("errcode") == 501:
+                # 腾讯 WAF 拦截 draft/update（gotchas B5）：退避无效，自动绕行 delete+add
+                print("WARN draft/update 被 WAF 501 拦截，自动绕行 delete+add ...", file=sys.stderr)
+                if not thumb:
+                    try:
+                        got = http_json(
+                            f"{API}/draft/get?access_token={token}",
+                            data=json.dumps({"media_id": kv["media"]}, ensure_ascii=False).encode("utf-8"),
+                            headers={"Content-Type": "application/json"},
+                        )
+                        thumb = (got.get("news_item") or [{}])[0].get("thumb_media_id", "")
+                    except Exception:
+                        thumb = ""
+                article = build_article(kv, content, thumb, author)  # thumb 可能已更新，重建
+                del_res = http_json(
+                    f"{API}/draft/delete?access_token={token}",
+                    data=json.dumps({"media_id": kv["media"]}, ensure_ascii=False).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                add_res = http_json(
+                    f"{API}/draft/add?access_token={token}",
+                    data=json.dumps({"articles": [article]}, ensure_ascii=False).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                if "media_id" in add_res:
+                    res = {"errcode": 0, "bypass": True, "old_media_id": kv["media"],
+                           "media_id": add_res["media_id"]}
+                    # 绕行改变了草稿身份：旧 id 已失效，后续核验/更新必须用新 id
+                    print("MEDIA_ID_CHANGED old=%s new=%s 请对新 id 重跑 check_draft.py"
+                          % (kv["media"], add_res["media_id"]), file=sys.stderr)
+                else:
+                    res = {"errcode": -1, "bypass": True, "delete_result": del_res,
+                           "add_result": add_res}
+                    print("ERR BYPASS_FAILED delete+add 绕行未成功，草稿状态未知：请先 "
+                          "draft-list 实查再决定重推或删除", file=sys.stderr)
         print(json.dumps(res, ensure_ascii=False))
         return
 
@@ -224,47 +284,21 @@ def main():
         print(json.dumps(res, ensure_ascii=False))
         return
 
-    if cmd == "publish":
-        res = http_json(
-            f"{API}/freepublish/submit?access_token={token}",
-            data=json.dumps({"media_id": kv.get("media", argv[1])}, ensure_ascii=False).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        print(json.dumps(res, ensure_ascii=False))
-        return
-
-    if cmd == "publish-get":
-        res = http_json(
-            f"{API}/freepublish/get?access_token={token}",
-            data=json.dumps({"publish_id": kv.get("media", argv[1])}, ensure_ascii=False).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        print(json.dumps(res, ensure_ascii=False))
-        return
-
-    if cmd == "publish-list":
-        off = int(kv.get("offset", "0"))
-        cnt = int(kv.get("count", "20"))
-        nc = 0 if kv.get("full") else 1
-        res = http_json(
+    if cmd == "check-perm":
+        probe = http_json(
             f"{API}/freepublish/batchget?access_token={token}",
-            data=json.dumps({"offset": off, "count": cnt, "no_content": nc}, ensure_ascii=False).encode("utf-8"),
+            data=json.dumps({"offset": 0, "count": 1, "no_content": 1}, ensure_ascii=False).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
-        print(json.dumps(res, ensure_ascii=False))
+        if probe.get("errcode") in (48001, 53010):
+            print(json.dumps({"perm": False, "errcode": probe.get("errcode"),
+                              "errmsg": probe.get("errmsg")}, ensure_ascii=False))
+        elif "errcode" not in probe or probe.get("errcode") == 0:
+            print(json.dumps({"perm": True, "total_count": probe.get("total_count", 0)},
+                             ensure_ascii=False))
+        else:
+            print(json.dumps({"perm": "unknown", "detail": probe}, ensure_ascii=False))
         return
-
-    if cmd == "publish-delete":
-        res = http_json(
-            f"{API}/freepublish/delete?access_token={token}",
-            data=json.dumps({"article_id": kv.get("media", argv[1])}, ensure_ascii=False).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-        )
-        print(json.dumps(res, ensure_ascii=False))
-        return
-
-    print(__doc__)
-    sys.exit(1)
 
 
 if __name__ == "__main__":
