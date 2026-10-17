@@ -46,12 +46,19 @@ python tests/run_all.py -k qa    # 只跑文件名含 qa 的判据
 # GitHub CLI（需带 skill 子命令；本机 gh 2.101.0 实测可用）
 gh skill install kuailexiaozixin/wechat-article
 # 锁版本
-gh skill install kuailexiaozixin/wechat-article wechat-article --pin v4.5.1
+gh skill install kuailexiaozixin/wechat-article wechat-article --pin v4.5.2
 
 # 手动：下载 tag 归档（每个 tag 都有，无需 release 资产）
-#   https://github.com/kuailexiaozixin/wechat-article/archive/refs/tags/v4.5.1.zip
+#   https://github.com/kuailexiaozixin/wechat-article/archive/refs/tags/v4.5.2.zip
 # 解压后把其中的 skills/wechat-article 整个目录放进助手的技能目录
 ```
+
+两条路径落地出来的文件不完全一样，做比对前先按这个口径：
+
+- `gh skill install` 会重写落地件里每个 `SKILL.md` 的 frontmatter：键按字母序重排、`description` 的引号风格改写、`---` 后的空行去掉，并注入四项安装来源标记（`metadata.github-repo` / `github-ref` / `github-path` / `github-tree-sha`）。v4.5.1 实测：52 个文件里 46 个与仓库逐字节相同，6 个 `SKILL.md` 因上述改写而不同；注入的 `github-tree-sha` 与 `git rev-parse v4.5.1:skills/wechat-article` 逐字符相同，说明改写只发生在 frontmatter，正文与脚本没动。
+- 下载 tag 归档解压出来的目录与仓库件逐字节相同（仓库根 `.gitattributes` 规定了检出行尾，文本一律 LF）。
+
+所以要拿这个目录做二次分发、打补丁或者与仓库做 diff，走归档路径；只是装进助手使用，两条都一样。
 
 ## 凭据（环境变量）
 

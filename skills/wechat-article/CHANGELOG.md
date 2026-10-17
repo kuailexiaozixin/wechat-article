@@ -2,6 +2,34 @@
 
 本技能变更记录。**对应关系只到发布线**：`main` 与 `rel-x.y.z` 分支上是「一个版本 = 一个提交 = 一个 tag」，本文件的每个版本段落对应发布线上那一个提交；本地安装目录所在的 `master` 线是工作树快照，按同一版本号提交、不参与发布。两条线没有共同祖先（`git rev-list --max-parents=0 --all` 给出 `8bc11a3` 与 `92a41af` 两个根），跨线 merge/rebase 没有定义，不要尝试。版本号只用在 tag 上，分支一律 `rel-` 前缀——此前 `refs/heads/v4.3.0` 与 `refs/tags/v4.3.0` 同名，本轮改名 `rel-4.3.0`。
 
+## 4.5.2（2026-10-17）安装件与仓库件不逐字节相同这件事写进文档 + 本地行尾归一
+
+发布 v4.5.1 后做了一次端到端回读：把 `v4.5.1` 装进空目录，再和发布工作树逐个文件比哈希。52 个文件里
+46 个相同，6 个 `SKILL.md` 不同——不是内容丢了，是 GitHub CLI 在落地时把 frontmatter 重新序列化了一遍：
+键按字母序重排（`name`/`description`/`version` 变成 `description`/`metadata`/`name`/`version`）、
+`description` 的引号风格改写、`---` 后面的空行去掉，并注入 `metadata.github-path` / `github-ref` /
+`github-repo` / `github-tree-sha` 四项安装来源标记。注入前的子树仍然对得上：安装件的 `github-tree-sha`
+是 `e84b100c…`，与 `git rev-parse v4.5.1:skills/wechat-article` 逐字符相同。这条区别决定了
+「下载件与仓库件逐字节相同」只对 tag 归档成立，读者按哪条路径安装会影响后面的比对与 diff，所以要写进文档，
+不能只记在变更日志里。
+
+- **发布仓库根 README 补一段安装路径的区别**：`gh skill install` 的落地件带安装元数据、frontmatter 被
+  重排；下载 `…/archive/refs/tags/<tag>.zip` 解压取出的目录与仓库件逐字节相同。要拿技能目录做二次分发
+  或版本比对，走归档路径；只是装进助手用，两条都行。
+- **v4.5.1 那处判据修复的复跑结果**：Actions run `39033591716`，`bs4=installed` 与 `bs4=none` 两格
+  都成功。前一格打印「Markdown 断言：bs4 路径（结构 7 项）」，后一格打印「Markdown 断言：
+  regex-degraded 路径（本机未装 bs4，结构断言不适用）」，两格汇总都是「判据文件 8 个：通过 7 ·
+  跳过 1 · 失败 0 项」；跳过的一格是 `test_qa_mobile.py`（CI 没有 playwright，渲染验收未跑），
+  汇总行按「跳过不计入通过」的口径单列它，上一轮报红的 7 项不再复现。
+- **本地行尾归一**：`materials/scripts/gen_cover.py`、`scripts/check_draft.py`、`scripts/wx_api.py`、
+  `write/scripts/validate_wx_html.py`、`tests/fixtures/sogou_type2_sample.html` 五个文件此前是 CRLF，
+  统一成 LF。发布树不含这一改动的影响——同步工具本来就把文本写成 LF，仓库根 `.gitattributes` 再固定
+  检出行为，所以归一后 52 个文件的逐字节核对仍全部相同，发布内容一字未变。
+- **本轮没有动的四处遗留**：旧 tag `v4.2.0`–`v4.4.0` 的 `CHANGELOG.md` 第 244 行仍带着当年的示例作者
+  姓名（清除要改写已发布历史）；`master` 与 `main` 两条无共同祖先的谱系仍共用一个 `.git`；远端
+  `rel-4.5.0` 分支与上一版本留在系统临时目录里的那个工作树未删（删分支、退工作树都是不可逆动作）；
+  `gh skill publish` 仍在报六个 `SKILL.md` 缺 recommended 的 `license` 字段、仓库没有 tag 保护 ruleset。
+
 ## 4.5.1（2026-10-17）Linux CI 首跑抓到「判据只在装了 bs4 的机器上成立」
 
 v4.5.0 发布后 `verify.yml` 首跑（Actions run `39032141690`，`ubuntu-latest`）报 7 项失败，全在
