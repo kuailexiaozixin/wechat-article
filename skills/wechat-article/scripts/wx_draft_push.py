@@ -92,7 +92,7 @@ def parse_args(argv):
 
 
 def load_validator():
-    """加载 ../write/scripts/validate_wx_html.py 的 validate()（复用，不重复实现）。"""
+    """加载 write/scripts/validate_wx_html.py 的 validate()（复用，不重复实现）。"""
     import importlib.util
     vp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                       "write", "scripts", "validate_wx_html.py")

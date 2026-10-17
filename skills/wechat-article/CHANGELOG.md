@@ -2,6 +2,51 @@
 
 本技能变更记录（与 git 提交一一对应）。
 
+## 4.3.1（2026-10-17）description 去重整合 + 母/子技能职能边界重划 + 相对路径口径统一
+
+本轮只动文档口径，不改任何接口行为与判据逻辑。
+
+- **frontmatter 去重**：删除 `display_name`、`display_name_en`、`description_zh`、`description_en`
+  四个字段，只留 `name` + `description` + `version`。删除理由是这四条内容与 `description`
+  逐句重复（同一份能力清单与同一句发布结论写了两到三遍），不是宿主不认——实测本机
+  `user_skills` 下另有 5 份 SKILL.md（tencent 系列用 `description_zh/en` 作双语短标签、
+  点金百技图 claim-expert 系列用 `display_name` 作中文显示名）也在用这些字段，
+  但它们的附加字段与 `description` 各有分工，本技能没有。
+- **母/子技能职能边界重划**（母技能只留"跨子技能才需要"的内容）：
+  - 路由表第三列由「覆盖能力」改为「该子技能负责的一件事」，一行一句，能力细则、
+    命令、参数、验收判据全部只在对应子技能正文写一份。
+  - 12 项辅助脚本清单改为按归属计数（`write/` 七支、`materials/` 两支、`read/` 与
+    `search/` 各一支），逐项说明归子技能正文。
+  - 「参数/内容硬约束」压成一句跨子技能口径（草稿标题取正文标题短句、完整标题放正文），
+    约束表归 `draft/SKILL.md`、取值域归 `references/api-docs.md`。
+  - 「发布」节只留一条判据（先 `check-perm`，`perm:false` 不重试转后台），发布前必设四项
+    清单、固定话术、`perm:true` 才谈 freepublish、已发布结果核对口径整体移入
+    `draft/SKILL.md`「制作→预览工作流」第 4 步。
+  - 「公共排障」不再抄一遍错误码，只指向 `references/gotchas.md` 这份唯一清单。
+  - 安全习惯第 2 条的闸口链只保留顺序与脚本路径，各闸查什么、怎么改归对应子技能。
+- **五个子技能 description 重写**：各自收窄触发词并写明跨边界归属，消除与母技能及彼此的重复
+  （draft 不再带正文 HTML 规范句、不再声明"做一篇公众号文章"触发；materials 的触发词收窄为
+  上传/换 URL/批量配图/做封面，数值上限移出 description；Search 声明 type=1 账号搜索未封装；
+  write/read/draft/materials 互指边界）。
+- **数值口径回到唯一归属**（去重，不改判据）：`--title`/`--digest` 上限只在 `draft/SKILL.md`
+  「参数约束」与 `references/api-docs.md` 出现，`write/references/writing-discipline.md` 的
+  参数表改为只写内容侧写法 + 指针；正文图 1MB / 封面 10MB 的格式与阈值统一归
+  `materials/SKILL.md`「图片限制」与 `references/api-docs.md`「官方限额」，
+  `write/references/wx-html-rules.md`、`references/gotchas.md` C2 改为指针；
+  `48001/53010` 的实测范围只在 `references/gotchas.md` A3，根「发布」节与 `draft/SKILL.md`
+  第 4 步改为判据 + 指针；`45110` 从 `writing-discipline.md` 删除，凭据口径归根「凭据」。
+- **目录名大小写按磁盘实写**：正文与 description 里的 `write/`、`search/` 三处改为 `write/`、
+  `search/`，与本地目录逐字符一致；发布树的小写布局仍由 `sync_release.py` 的改写规则产生。
+- **相对路径口径统一**：文中引用一律以技能目录为根。42 处 `../xxx` 写法改写
+  （`../scripts/wx_api.py` 15 处、`../materials/` 5 处、`../references/gotchas.md` 4 处、
+  `../SKILL.md` 4 处等）。改写后正文与脚本里剩下的 `../` 只有 5 处，全部是
+  `../assets/xxx.png` 一类"本地相对路径微信端必不显示"的反例；CHANGELOG 历史条目按惯例不改写。
+  母技能「目录与路由」里早已写明"相对路径均以本技能目录为根"，本轮是让正文与脚本真正按这句口径走。
+- **验证**：`tests/run_all.py` 8 个判据文件 0 失败；23 个脚本 `compileall` 通过；
+  以技能根为基准的引用 172 处全部可解析、0 处落空；六份 SKILL.md frontmatter 均可被
+  PyYAML 解析且字段只剩 `name`/`description`（根多一个 `version`）；与 release 树
+  （v4.3.0，cd20bc4）套用发布布局改写规则后逐文件比对，真实内容差异只落在本轮改动的文档。
+
 ## 4.3.0（2026-10-17）三道闸落地为代码 + 读取/搜索脚本化 + 判据测试体系 + 可分发整改
 
 本轮把此前只写在文档里的验收要求变成脚本内建的强制步骤，并补齐读/搜两条链路的可执行入口。

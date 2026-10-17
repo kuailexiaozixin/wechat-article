@@ -1,6 +1,6 @@
 ---
 name: search
-description: 按关键词搜索微信公众号文章，返回标题、公众号名、发布时间与真实 mp.weixin.qq.com 链接。走搜狗微信搜索网页接口，纯标准库实现，带反爬识别与限流。当用户要求"搜索/查找/定位公众号文章或某个公众号"时使用。
+description: 按关键词搜索微信公众号文章，返回标题、公众号名、发布时间与真实 mp.weixin.qq.com 链接：走搜狗 weixin.sogou.com 的 type=2 结果页，纯标准库实现，跳转链接三形态还原（302 Location / meta refresh / url 片段拼接），命中反爬立即停手不重试。当用户要求"搜索/查找/定位某篇公众号文章""找写过 xx 的公众号文章"时使用。按公众号名检索（type=1）实测返回空结果容器，本技能未封装；拿到链接后取正文走 read/。
 ---
 
 # 微信公众号文章搜索（搜狗通道）
@@ -61,7 +61,7 @@ python search/scripts/search_wechat.py "<关键词>" --fixture page.html   # 离
 
 ## 五、与读取的配合
 
-搜索给的是「哪篇文章」，正文交给 `read/`：`python ../read/scripts/read_wechat.py "<resolved_url>"`。搜狗收录有时效延迟，刚发布的文章搜不到属正常，用户给已知链接时直接走 `read/`，不要绕搜索。
+搜索给的是「哪篇文章」，正文交给 `read/`：`python read/scripts/read_wechat.py "<resolved_url>"`。搜狗收录有时效延迟，刚发布的文章搜不到属正常，用户给已知链接时直接走 `read/`，不要绕搜索。
 
 ## 六、脆弱性（用前即时验证）
 

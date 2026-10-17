@@ -7,7 +7,7 @@
 - **单一 HTML 文件，交付纯 `<section>` 正文片段**——不包 `<!DOCTYPE>`/`<html>`/`<head>`/`<body>`。公众号只认正文片段，文档外壳会被丢弃或干扰。
 - 禁止 `<style>` 块、禁止外部 CSS/JS 引用、禁止 `<script>`（微信全部剥离或拒绝）。
 - 全部样式内联在元素 `style` 属性上。
-- 正文图片必须为 `mmbiz.qpic.cn` URL（先 `uploadimg`，见 `../../materials/`）；**禁止本地相对路径**（如 `../assets/xxx.png`，微信端必不显示）。
+- 正文图片必须为 `mmbiz.qpic.cn` URL（先 `uploadimg`，见 `materials/`）；**禁止本地相对路径**（如 `../assets/xxx.png`，微信端必不显示）。
 - **一步到位原则**：写 HTML 时直接引用 `uploadimg` 返回的 mmbiz URL——先批量上传全部配图得到 URL 清单，再排版引用。「先写本地路径、事后替换」的中间态是历史返工来源：本地路径 HTML 一旦误推，图片全部不显示，修复需重推整篇。
 - **base64 内联版仅按需归档**：只有用户明确要求「离线存档、图片内联、可断网打开」时才另生成，与推送版是两个文件、互不覆盖，不双份维护。微信端不识别 base64 图片，归档版绝不能直接推送。存量 base64 存档需重推时，按「解码 base64 → `uploadimg` → 替换 src → 校验 → 重推」一次性转换。
 
@@ -77,4 +77,4 @@
 - **封面**：`materials/scripts/gen_cover.py` 生成——`python materials/scripts/gen_cover.py --out cover.png [--pattern layers|guard|grid|circuit] [--seed N]`；`--seed` 缺省随机，保证每篇不同。纯几何、无文字（避免字体缺失与版权问题）；宽比 2.35:1（2048×880，大卡 900×383 展示最佳）。
 - **示意图**优先用 Mermaid（流程、状态机、架构），渲染为 PNG 后 `uploadimg` 换 mmbiz URL 再放入正文；图下配图注（theme-default 组件 8）。
 - **Mermaid 渲染**：`write/scripts/render_mermaid.py <a.mmd> [b.mmd ...]`，输出同目录同名 PNG。浏览器 fallback 链：系统 Edge（msedge）→ 系统 Chrome（chrome）→ Playwright 默认 Chromium；全部不可用时给出明确报错与安装指引（`playwright install chromium`）。
-- **正文图尺寸**：`media/uploadimg` 仅支持 jpg/png 且必须 <1MB（超限报 `40009`，格式不符报 `40005`）；`materials/scripts/upload_imgs.py` 上传前预检，超限逐张报 FAIL 后退出，不发请求。
+- **正文图尺寸**：受正文图上传接口限制，格式与大小口径、超限错误码、上传前预检行为统一见 `materials/SKILL.md`「图片限制」与 `references/api-docs.md`「官方限额」；排版阶段只要求 `<img src>` 已是 `mmbiz.qpic.cn` URL。

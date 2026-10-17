@@ -1,6 +1,6 @@
 ---
 name: read
-description: 从已知的 mp.weixin.qq.com 链接提取公众号文章正文与元信息并转 Markdown，带四层降级取页、验证墙判定与正文完整性质量门。当用户要求“读取/提取/解析某篇公众号文章正文”时使用。
+description: 从已知的 mp.weixin.qq.com 链接提取公众号文章正文与元信息并转 Markdown：四层降级取页（Mobile UA → Desktop UA+Cookie → 完整浏览器头 → 本机 Edge CDP）、验证墙判定、正文完整性质量门。当用户要求"读取/提取/解析某篇公众号文章正文""这篇写了什么"时使用。只有关键词没有链接时先走 search/。
 ---
 
 # 微信公众号文章读取（Read）

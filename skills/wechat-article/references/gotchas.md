@@ -66,7 +66,7 @@
 - **推送前必跑 `write/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须跑 `scripts/check_draft.py <media_id> --source <article.html>`：自动核验正文图 URL、代码块结构、标题/摘要/封面，并比对草稿正文与源文件是否一致，再交付验收。
 
 ### C2. 正文图 URL 失效排查
-`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前注意正文图尺寸口径：`media/uploadimg` 仅支持 jpg/png 且必须 <1MB，`upload_imgs.py` 已在上传前预检并报 FAIL。
+`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前先按 `materials/SKILL.md`「图片限制」核对尺寸与格式（`upload_imgs.py` 的预检会拦住超限图）。
 
 ### C3. mmbiz-map 键约定：必须 basename
 - 现象：某篇首次校验报 3 处图片 ERROR（本地路径未替换），草稿正文图不显示。

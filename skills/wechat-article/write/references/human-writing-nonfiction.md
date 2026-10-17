@@ -1,6 +1,6 @@
 # 活人感写作 · 非虚构整合参考（human-writing-nonfiction）
 
-> 配套检查脚本：`../scripts/check_prose.py`。
+> 配套检查脚本：`write/scripts/check_prose.py`。
 > 与 `validate_wx_html.py` 的分工：validate 管**微信兼容与排版红线**（ERROR），check\_prose 管**成稿的模型腔硬禁令**（翻案句/黑话/硬停词等）。推送前两者都跑。
 
 ## 何时读这份文件
