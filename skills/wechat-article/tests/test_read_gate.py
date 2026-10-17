@@ -35,6 +35,16 @@ def _read_rel(*parts):
         return f.read()
 
 
+def _bs4_present():
+    """探测 `html_to_md()` 会走哪条路径——它只 catch ImportError，这里也只听 ImportError，
+    与脚本行为逐字对齐（装了 bs4 却 import 失败的机器会把异常抛成执行异常，不当成没装）。"""
+    try:
+        import bs4  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
 def page(content_inner, title="测试标题", published="2026-04-18 09:30"):
     head = '<meta property="og:title" content="%s">' % title
     if published:
@@ -62,16 +72,35 @@ def run():
         if r["chars"] < 800:
             fails.append("样本字数统计异常：%d" % r["chars"])
         md = r["markdown"]
-        for token, why in (("## 第一道：结构先于样式", "二级标题"),
-                           ("- 每段一个论点", "无序列表"),
-                           ("1. 先通读一遍", "有序列表"),
-                           ("**验收标准**", "加粗"),
-                           ("```\npython read/scripts", "代码块围栏"),
-                           ("> 引用的官方文档", "引用块"),
-                           ("![微信配图](https://mmbiz.qpic.cn/mmbiz_png/IMGSAMPLE/640?wx_fmt=png)",
-                            "图片地址")):
-            if token not in md:
-                fails.append("Markdown 缺少%s（未命中 %r）" % (why, token[:40]))
+        mode = r["parse_mode"]
+        if _bs4_present():
+            if mode != "bs4":
+                fails.append("本机装了 bs4 但 parse_mode=%r，引擎选择与探测不符" % mode)
+            for token, why in (("## 第一道：结构先于样式", "二级标题"),
+                               ("- 每段一个论点", "无序列表"),
+                               ("1. 先通读一遍", "有序列表"),
+                               ("**验收标准**", "加粗"),
+                               ("```\npython read/scripts", "代码块围栏"),
+                               ("> 引用的官方文档", "引用块"),
+                               ("![微信配图](https://mmbiz.qpic.cn/mmbiz_png/IMGSAMPLE/640?wx_fmt=png)",
+                                "图片地址")):
+                if token not in md:
+                    fails.append("Markdown 缺少%s（未命中 %r）" % (why, token[:40]))
+            print("Markdown 断言：bs4 路径（结构 7 项）")
+        else:
+            # 无 bs4 时 read/SKILL.md 承诺的是 regex-degraded「不产结构，只有段落文本」，
+            # 那就判这条契约：既不许悄悄冒充 bs4，也不许把「没装 bs4」写成通过。
+            if mode != "regex-degraded":
+                fails.append("本机无 bs4 但 parse_mode=%r，未落到文档写明的降级路径" % mode)
+            if "## 第一道" in md or "**验收标准**" in md:
+                fails.append("regex 降级路径产出了 Markdown 结构，与 read/SKILL.md 的 "
+                             "parse_mode 说明不符")
+            for probe in ("第一道：结构先于样式", "每段一个论点"):
+                if probe not in md:
+                    fails.append("regex 降级路径连段落文本都缺：%r" % probe)
+            if "![微信配图](" in md or "```" in md:
+                fails.append("regex 降级路径产出了图片或代码块语法，与「只有段落文本」的说明不符")
+            print("Markdown 断言：regex-degraded 路径（本机未装 bs4，结构断言不适用）")
         if "wx_lazy" in md:
             fails.append("图片地址未清掉 wx_lazy 懒加载参数")
         if "script" in md.lower() and "window." in md:

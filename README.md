@@ -32,9 +32,11 @@ python tests/run_all.py -k qa    # 只跑文件名含 qa 的判据
 
 汇总行形如「判据文件 8 个：通过 8 · 跳过 0 · 失败 0 项」。**跳过单列、不计入通过**：`qa_mobile` 那一支需要本机有 Playwright 与浏览器，缺依赖时打印 SKIP 并说明原因，不会伪装成通过。GitHub Actions（`.github/workflows/verify.yml`）在 Ubuntu 上跑的正是这同一批判据，Linux 的文件系统大小写敏感，所以那一跑同时也在验本仓库的下述目录名口径。
 
+`read` 的 Markdown 结构断言分两条引擎路径：装了 `beautifulsoup4` 才逐节点映射标题/列表/加粗/引用/代码块/图片，没装则走 `regex-degraded`（只出段落文本，不产结构，详见 `skills/wechat-article/read/SKILL.md` 四、五两节）。CI 用 `bs4: [none, installed]` 矩阵把两条都跑一遍——只在装有 bs4 的机器上验结构，等于从没测过降级分支。
+
 ## 目录名与行尾口径
 
-- **子技能目录一律小写**（`write/ read/ search/ draft/ materials/`）。宿主本地安装目录用的是 `Write/ Read/ Search/`，发布树按小写生成，文本里的同名引用一起改写；这条改写由 `tests/test_evals_routes.py` 守着——它在小写树和大写树里都能跑，引用与磁盘名大小写不符即报红。Linux/macOS 克隆后文件系统大小写敏感，靠约定不成立，所以做成判据。
+- **子技能目录一律小写**（`write`、`read`、`search`、`draft`、`materials`）。宿主本地安装目录的三个子技能用的是首字母大写目录名（`Write`、`Read`、`Search`），发布树按小写生成，文本里的同名引用一起改写；这条改写由 `tests/test_evals_routes.py` 守着——它在小写树和大写树里都能跑，引用与磁盘名大小写不符即报红。本 README 也在同一判据的核对范围内：它写的都是 `skills/wechat-article/read/SKILL.md` 这种完整式路径，判据剥掉 `skills/wechat-article/` 前缀后按同一口径比对（此前实测就在这里写出过与实际磁盘名不符的引用）。Linux/macOS 克隆后文件系统大小写敏感，靠约定不成立，所以做成判据。
 - **行尾只有 LF**，由仓库根 `.gitattributes` 钉住检出行为。
 - 映射与同步由仓库外的一个脚本完成（把本地树按上述两条改写后写入 `skills/wechat-article/`）。它不进本仓库：技能内容必须能独立分发，而那个脚本认识的是发布者的本机目录。仓库内留下的是上面这两条口径本身和守它们的判据，两者合起来足够重建发布树。
 
@@ -44,10 +46,10 @@ python tests/run_all.py -k qa    # 只跑文件名含 qa 的判据
 # GitHub CLI（需带 skill 子命令；本机 gh 2.101.0 实测可用）
 gh skill install kuailexiaozixin/wechat-article
 # 锁版本
-gh skill install kuailexiaozixin/wechat-article wechat-article --pin v4.5.0
+gh skill install kuailexiaozixin/wechat-article wechat-article --pin v4.5.1
 
 # 手动：下载 tag 归档（每个 tag 都有，无需 release 资产）
-#   https://github.com/kuailexiaozixin/wechat-article/archive/refs/tags/v4.5.0.zip
+#   https://github.com/kuailexiaozixin/wechat-article/archive/refs/tags/v4.5.1.zip
 # 解压后把其中的 skills/wechat-article 整个目录放进助手的技能目录
 ```
 

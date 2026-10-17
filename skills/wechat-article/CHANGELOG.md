@@ -2,6 +2,40 @@
 
 本技能变更记录。**对应关系只到发布线**：`main` 与 `rel-x.y.z` 分支上是「一个版本 = 一个提交 = 一个 tag」，本文件的每个版本段落对应发布线上那一个提交；本地安装目录所在的 `master` 线是工作树快照，按同一版本号提交、不参与发布。两条线没有共同祖先（`git rev-list --max-parents=0 --all` 给出 `8bc11a3` 与 `92a41af` 两个根），跨线 merge/rebase 没有定义，不要尝试。版本号只用在 tag 上，分支一律 `rel-` 前缀——此前 `refs/heads/v4.3.0` 与 `refs/tags/v4.3.0` 同名，本轮改名 `rel-4.3.0`。
 
+## 4.5.1（2026-10-17）Linux CI 首跑抓到「判据只在装了 bs4 的机器上成立」
+
+v4.5.0 发布后 `verify.yml` 首跑（Actions run `39032141690`，`ubuntu-latest`）报 7 项失败，全在
+`tests/test_read_gate.py` 的 Markdown 结构断言。分诊结论不是排版回归：`read/scripts/read_wechat.py`
+的 `html_to_md()` 第一句是 `from bs4 import BeautifulSoup, …`，`ImportError` 就落进正则剥标签的降级
+路径（`extract_content()` 把引擎记在结果的 `parse_mode` 里，`read/SKILL.md` 写明
+`regex-degraded` 这条「不产结构，只有段落文本」）。本机装了 bs4 4.15.0，结构七项全中；CI 的 Ubuntu
+runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。**报错的是判据的适用前提，不是脚本。**
+
+- **判据按引擎分支**：`tests/test_read_gate.py` 新增 `_bs4_present()`（只听 `ImportError`，与被测代码
+  的 catch 口径逐字对齐——bs4 装了但坏了要抛成执行异常，不当成没装）。第 1 节分两支：有 bs4 时先要求
+  `parse_mode == "bs4"`，再跑结构七项；无 bs4 时改判文档承诺的那条契约——`parse_mode` 必须是
+  `regex-degraded`、不得出现 `## ` 与 `**` 结构、不得出现图片/代码块语法、段落文本仍在。两支都打印
+  自己走的是哪条路径，日志能看出这一跑到底测了什么。
+- **CI 加 bs4 矩阵**：`verify.yml` 用 `bs4: [none, installed]` 两格，同一批判据在有/无 bs4 的环境各跑
+  一遍，`fail-fast: false` 让两格互不掩盖。本机只有「有 bs4」这一格，降级分支在本轮之前从未被任何
+  环境执行过——矩阵补的是这个洞。
+- **判据覆盖面扩到仓库根 README**：`tests/test_evals_routes.py` 新增 `repo_meta_files()`，把发布仓库
+  根那一层的 README 也纳入大小写核对——它写在技能子树之外，却全是 `skills/wechat-article/read/SKILL.md`
+  这种完整式路径；判据剥掉 `skills/wechat-article/` 前缀后与子树内同一口径比对。本地安装树没有这一层，
+  取不到即跳过，所以同一份判据在 324 处（本地树）和 338 处（发布树）两种布局下都是绿的。
+- **变异核验 19 例全检出**（隔离副本树；「无 bs4」用临时假包复现，`bs4/__init__.py` 里抛
+  `ImportError`）：D1 降级路径伪造 `## ` 结构、D2 降级路径返回空串、D3 无 bs4 却报
+  `parse_mode="bs4"`、D4 有 bs4 时删掉 img 映射、D5 无 bs4 且实现正常必须为绿；E1 在
+  `skills/wechat-article/` 嵌套布局旁放一份把目录名写错大小写的仓库根 README 要报红、E2 同一位置
+  写法正确必须为绿（这一对是上面那条判据的证伪）；连同 4.5.0 那批 A1–A7、B1–B3b、C1，
+  共 19 例，未被检出 0 个。
+- **实现与文档口径**：`html_to_md()` 的实现、`parse_mode` 的三种取值一字未改，本轮只改判据的适用前提。
+  要结构化 Markdown 就得装 bs4，这一条写进 `read/SKILL.md` 与发布仓库根 README，不再让读者从
+  「不产结构」反推该装什么。
+- **遗留**：`verify.yml` 只跑判据、不跑 `gh skill publish --dry-run`；CI 无浏览器，
+  `test_qa_mobile.py` 在 CI 恒为 SKIP（渲染验收目前只有本机 msedge 跑过），是否给 CI 加
+  Playwright + Chromium 取决于愿不愿意为它增加下载依赖，本轮没有加。
+
 ## 4.5.0（2026-10-17）发布口径落进判据与文档 + 读取层跨平台解耦 + 三处判据补漏
 
 本轮不新增能力，把上一轮批判里成立的十一处逐条改掉：能在仓库里变成判据的做成判据，不能的写清口径与归属。

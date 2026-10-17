@@ -9,6 +9,8 @@
      **磁盘上的真实名字逐字符一致**且路径存在。本地是 `write/ read/ search/` 大写布局，
      发布树按 gh skill 的 `skills/<name>/` 结构收成小写；Windows 文件系统大小写不敏感，
      「文件能打开」证明不了这一点，Linux/macOS 克隆后才暴露成 file not found。
+     发布仓库根那一层的 `README.md` 一起扫（它写的是 `skills/<技能名>/` 打头的完整式路径，
+     剥掉这一段前缀后与子树内引用同一口径比对；本地安装树没有这一层，取不到就跳过）。
 """
 import io
 import json
@@ -70,7 +72,22 @@ def text_files():
         for fn in sorted(filenames):
             rel = os.path.relpath(os.path.join(dirpath, fn), ROOT).replace(os.sep, "/")
             if fn.endswith(TEXT_EXT) and rel not in LAYOUT_SKIP:
-                yield rel
+                yield rel, None
+
+
+def repo_meta_files():
+    """发布仓库根那一层的 README。它写在技能子树之外，路径却是以 `skills/<技能名>/` 打头的完整式，
+    子树内的判据本来看不见——本轮实测就在 README 里写出过一个顶层目录大小写错的引用（磁盘上首字母
+    大写、文中写成了小写，Linux 克隆过来就是 file not found）。剥掉 `skills/<本目录名>/` 这一段前缀后，
+    它与子树内的引用按同一口径比对；本地安装树没有这一层，取不到就跳过。"""
+    up = os.path.normpath(os.path.join(ROOT, os.pardir, os.pardir))
+    prefix = "skills/" + os.path.basename(ROOT) + "/"
+    out = []
+    for fn in ("README.md",):
+        p = os.path.join(up, fn)
+        if os.path.isfile(p):
+            out.append(("../README.md", prefix, p))
+    return out
 
 
 def check_layout():
@@ -86,9 +103,13 @@ def check_layout():
     就是执行异常，run_all 计为失败。
     """
     fails, tops, n = [], disk_tops(), 0
-    for rel in text_files():
-        text = io.open(os.path.join(ROOT, rel.replace("/", os.sep)),
-                       encoding="utf-8", errors="replace").read()
+    sources = [(rel, os.path.join(ROOT, rel.replace("/", os.sep)), None)
+               for rel, _ in text_files()]
+    sources += [(fn, path, prefix) for fn, prefix, path in repo_meta_files()]
+    for rel, path, prefix in sources:
+        text = io.open(path, encoding="utf-8", errors="replace").read()
+        if prefix:                       # 仓库根 README 用完整式路径，剥前缀后同一口径比对
+            text = text.replace(prefix, "")
         for m in REF_RX.finditer(text):
             raw, ref = m.group(1), m.group(1).rstrip("/.-")
             n += 1

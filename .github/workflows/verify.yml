@@ -2,6 +2,9 @@ name: verify
 
 # 只做一件事：在大小写敏感的文件系统上跑 tests/run_all.py。
 # 判据全部离线，不联网、不调用任何微信接口、不需要凭据。
+# 矩阵两格是给 `read_wechat.html_to_md()` 的两条解析路径各跑一遍：装了 bs4 走结构映射，
+# 没装走 regex-degraded。本机（Windows）装了 bs4，看不到降级分支，所以这一条必须由
+# 「不装 bs4」的那一格在 Linux 上验，否则降级契约会悄悄烂掉。
 on:
   push:
     branches: [main]
@@ -11,14 +14,23 @@ on:
 jobs:
   judges:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        bs4: [none, installed]
     env:
       PYTHONUTF8: "1"
+    name: 判据（bs4=${{ matrix.bs4 }}）
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: 按矩阵装/不装 beautifulsoup4
+        if: matrix.bs4 == 'installed'
+        run: python -m pip install --quiet --disable-pip-version-check beautifulsoup4
 
       - name: 判据全量（失败即退出码非 0）
         working-directory: skills/wechat-article
