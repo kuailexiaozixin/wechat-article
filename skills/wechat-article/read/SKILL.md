@@ -1,45 +1,70 @@
 ---
 name: read
-description: 从 mp.weixin.qq.com 链接提取微信公众号文章正文与元信息并转 Markdown 的方法（四层渐进式：Mobile UA 直连 → Desktop UA + Session → 完整浏览器 Headers → CDP 浏览器自动化），含 HTML 解析要点、图片防盗链处理与验证墙判定。当用户要求“读取/提取/解析某篇公众号文章正文”时使用。
+description: 从已知的 mp.weixin.qq.com 链接提取公众号文章正文与元信息并转 Markdown，带四层降级取页、验证墙判定与正文完整性质量门。当用户要求“读取/提取/解析某篇公众号文章正文”时使用。
 ---
 
-# 微信公众号文章读取方法
+# 微信公众号文章读取（Read）
 
-方法论已验证有效（实测可读取验证墙文章与普通文章，CDP 路径与 HTTP 路径均已跑通）。
+## 一、命令
 
-## 阅读与解析（四层渐进式，以"非空正文"为准）
+```bash
+python read/scripts/read_wechat.py "<mp.weixin.qq.com 链接>"              # Markdown 打印到 stdout
+python read/scripts/read_wechat.py "<链接>" -o article.md                 # 存文件
+python read/scripts/read_wechat.py "<链接>" --json                        # 结构化结果（含正文与逐项诊断）
+python read/scripts/read_wechat.py "<链接>" --no-cdp                      # 只用 HTTP 三层，不起浏览器
+python read/scripts/read_wechat.py "<链接>" --layer 2                     # 最多降到第 2 层
+python read/scripts/read_wechat.py "<链接>" --min-chars 1200              # 收紧正文长度阈值
+python read/scripts/read_wechat.py x --fixture saved.html                 # 离线解析本地存下的页面
+```
 
-核心原则：`success` 必须伴随**非空 markdown**；仅拿到标题、正文为空 → 判失败继续降级。
+输出：YAML frontmatter（`source_url`/`title`/`author`/`account`/`published`/`cover`/`digest`/`extract_layer`/`content_chars`/`note`/`fetched_at`）+ 正文 Markdown。
+退出码：0 = 过质量门；1 = 失败，stderr 打印各层尝试与判定原因。
 
-1. **Mobile UA 直连**（Android Chrome UA）——无验证墙文章可直接拿到正文
-2. **Desktop UA + Session**（requests Session 携带 Cookie）
-3. **完整浏览器 Headers**（Accept / Accept-Language zh-CN / Referer / Sec-Fetch 系列）
-4. **CDP 浏览器自动化**（验证墙场景）：完整连接方法见 `references/cdp-edge.md`（自包含，含代码与已验证的坑）——读本机 Edge 调试端口文件 `%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort`（两行：端口 + ws_path）→ 连接 `ws://127.0.0.1:<port><ws_path>`（禁止 Origin 头）→ `Target.createTarget`（url）→ `Target.activateTarget` → `Target.attachToTarget`(flatten:true) → `Runtime.evaluate` 取 `#js_content`
-   - **关键坑（已验证）**：CDP 响应必须**循环读取直到 `id` 匹配**——CDP 会夹带页面事件消息，单次 `ws.recv()` 会读到错误响应导致 `attachToTarget` 失败
+## 二、四层降级取页
 
-## 解析要点（HTML）
+`success` 必须伴随非空正文：只拿到标题、正文为空一律判失败并继续降级。
 
-- 正文：`id="js_content"`（或 `class="rich_media_content"`）
-- 元信息：标题 `og:title` → `h1#activity-name`；作者 `og:article:author` → `span#js_author_name`；公众号 `og:account_name` → `strong#js_name`；发布时间 `article:published_time` → `em#js_publish_time`；封面 `og:image`；摘要 `og:description`
-- HTML→Markdown：lxml + BeautifulSoup 递归遍历 DOM（h1-6 / strong / em / a / img / li / pre 映射），降级链路 bs4+html.parser → 纯正则
-- 图片：保留 `wx_fmt`/`wx_co`/`tp` 参数，去除 `wx_lazy` 懒加载标记；优先 `data-src` 再 `src`；微信图片有 Referer 防盗链，需加 `Referer: https://mp.weixin.qq.com`
-- 验证墙判定：正文缺失（js_content 空）→ 判失败并降级 CDP；"验证提示但正文完整" → 标记 warning 继续提取
+| 层 | 手段 | 什么时候够用 |
+|---|---|---|
+| 1 | Mobile UA 直连（Android Chrome UA） | 无验证墙的普通文章 |
+| 2 | Desktop UA + cookie jar（Session 语义，cookie 随请求带） | 需要先落 cookie 的请求 |
+| 3 | Desktop UA + 完整浏览器头（`Accept`/`Accept-Language`/`Accept-Encoding: identity`/`Upgrade-Insecure-Requests`/`Sec-Fetch-*`/`Referer: https://mp.weixin.qq.com/`） | 按 header 完整性风控的页面 |
+| 4 | CDP 浏览器自动化（本机 Edge） | 验证墙文章：页面要在真实浏览器里跑过 JS 才有正文 |
 
-## 已验证结论
+第 4 层的连接序列固化在 `read/references/cdp-edge.md`（自包含，含代码与已验证的坑）：读本机 `%LOCALAPPDATA%\Microsoft\Edge\User Data\DevToolsActivePort`（两行：端口 + WebSocket 路径，UUID 每次重启都变，不能写死）→ 连 `ws://127.0.0.1:<port><path>`（禁止带 Origin）→ `Target.createTarget` → `Target.activateTarget` → `Target.attachToTarget(flatten:true)` → 带 `sessionId` 的 `Runtime.evaluate` 取 `document.documentElement.outerHTML`。**关键坑**：CDP 会在响应流里夹带页面事件消息，必须循环读到 `id` 匹配才算收到应答，单次 `recv()` 会读到别的消息导致 `attachToTarget` 看似失败。
 
-- 已实测能读取**验证墙文章**（CDP 路径）与**无验证墙文章**（HTTP 路径）
-- CDP 连接方法已固化在 `references/cdp-edge.md`（自包含，不依赖其他技能）
-- 依赖库：`requests` / `lxml` / `websocket-client`（CDP 层）；`beautifulsoup4` 可选（缺失时降级 html.parser / 纯正则路径）
-- CDP 前提：本机 Edge 已开启远程调试端口（`DevToolsActivePort` 存在 + 端口监听）
-- 单 URL 重试不超过 3 次避免封 IP；内容仅供合规场景使用，遵守版权
+重试纪律：每层只请求 1 次，仅连接类异常（超时/`URLError`）补 1 次；内容判定不合格不在同一层重试，直接换层。整体不超过「单 URL 3 次」这条线。
 
-## 脆弱性标注（外部路径，使用前即时验证）
+## 三、质量门（判「取到了全文」而不是「请求成功了」）
 
-- 本方法依赖 `mp.weixin.qq.com` 页面结构与微信反爬策略，**两者都可能随平台改版失效**：若某次提取失败且方法本身没变，先怀疑页面结构/UA 策略变化，用「四层渐进式」逐层降级重试，不要反复重试同一层。
-- CDP 路径依赖本机 Edge 调试端口，端口被占用或 Edge 未启动时 `DevToolsActivePort` 不存在——先确认 Edge 运行状态。
-- 图片防盗链 Referer 参数（`wx_fmt`/`wx_co`）若失效，图片可能 403；改用 `data-src` 或原图直链。
+依次判，任一不过即 FAIL：
 
-## 与其他子技能的关系
+1. **正文节点缺失** → `#js_content` 取不到（验证墙或结构变更）。
+2. **命中验证墙标记** → 正文区出现 `wappoc_appmsgcaptcha`、"环境异常"、"完成验证后即可继续访问"、"验证码拦截"。
+3. **正文过短** → 去标签后非空白字符数 < `--min-chars`（默认 800，经验阈值不是官方口径）。**短文豁免**：字数不足但标题、发布时间、正文节点三者齐备，判 PASS 并在 `note` 里写明豁免——短推文本来就没 800 字，不能因此判失败。缺标题或缺发布时间时不适用豁免。
 
-- 本方法**读取**单篇已知链接的公众号文章。若需先**发现/定位**文章或公众号，见同级 `search/`；搜得的真实 `mp.weixin.qq.com` 链接再用本方法读取。
-- CDP 连接本机 Edge 的具体操作见本子技能 `references/cdp-edge.md`（读取 DevToolsActivePort 直连 WebSocket 的完整代码与排障）。
+## 四、解析要点
+
+- 正文节点：`id="js_content"`（回退 `class="rich_media_content"`）。
+- 元信息：标题 `og:title` → `h1#activity-name`；作者 `og:article:author` → `span#js_author_name`；公众号 `og:account_name` → `strong#js_name`；发布时间 `article:published_time` → `em#js_publish_time`；封面 `og:image`；摘要 `og:description`。
+- HTML→Markdown：优先 BeautifulSoup（`html.parser`），逐节点映射标题/加粗/斜体/链接/图片/列表/引用/代码块/段落。解析路径记在结果的 `parse_mode`：`bs4` 正常；`bs4-no-node` 表示 bs4 在但正文节点没找到——判失败并降级下一层，不猜正文；`regex-degraded` 表示未安装 bs4、走正则截取正文（该路径不产结构，只有段落文本）。
+- 图片 URL：保留 `wx_fmt`/`wx_co`/`tp` 参数，只去掉 `wx_lazy` 懒加载标记；优先 `data-src` 再 `src`。微信图片有 Referer 防盗链，本地另存需带 `Referer: https://mp.weixin.qq.com`。
+- 编码：按响应头 charset，再退 UTF-8、GBK。
+
+## 五、依赖
+
+- 第 1–3 层：Python 标准库（`urllib` + `re`），无第三方硬依赖。
+- 第 4 层：`websocket-client`（`pip install websocket-client`）+ 本机 Edge 已开远程调试端口。
+- 可选：`beautifulsoup4`（缺失走正则降级路径）。
+
+## 六、脆弱性（用前即时验证）
+
+- 依赖 `mp.weixin.qq.com` 页面结构与微信风控策略，两者都可能随改版失效。失败且代码没变时：按四层逐层降级看诊断，先怀疑结构/UA 策略变化，不反复重试同一层。
+- CDP 路径要求 Edge 在跑且调试端口开着；`DevToolsActivePort` 不存在时脚本会直接说明缺哪个前提，`--no-cdp` 可跳过该层。
+- `wx_fmt`/`wx_co` 若失效，图片可能 403；改取 `data-src` 或原图直链。
+
+## 七、与其他子技能的关系
+
+需要先**发现/定位**文章（只有主题、没有链接）时走同级 `search/`；搜到的跳转链接由 `search/scripts/search_wechat.py -r` 还原成 `mp.weixin.qq.com` 链接后再交给本脚本。搜到的真实链接带签名时效，拿到就立即读取，不要存档 URL 待用。
+
+内容仅供合规阅读与研究，遵守原文版权。

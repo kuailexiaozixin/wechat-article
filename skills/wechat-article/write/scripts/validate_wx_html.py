@@ -15,11 +15,8 @@ BANNED_WORDS / AI_FLAVOR_PHRASES 词表与改写手法维护见 `write/reference
 退出码: 1 = 有 ERROR（会被微信过滤或显示异常，必须修复）; 0 = 通过
 （WARNING 建议人工确认）。
 
-与 gzh-design-skill 的 validate_gzh_html.py（AGPL-3.0，作者 甲木 × 摸鱼小李）
-差异：本校验面向「draft/add API 直接推送」路径，不要求 <span leaf=""> 包裹
-（API 保留内联样式，实测样式正常）；但要求图片必须 mmbiz 域名、
-代码块必须 <section>+逐行 <p>、产物为纯正文片段。
-检查项清单借鉴自该技能；实现为本文件独立编写。依 AGPL-3.0 保留来源声明。
+检查项清单参考自一个 AGPL-3.0 许可的外部同类排版工具，实现代码为本文件独立编写，
+不依赖其任何文件；来源与许可记录见仓库 CHANGELOG.md。
 """
 import argparse
 import os
@@ -41,7 +38,7 @@ FORBIDDEN_TAGS = [
     (re.compile(r"<[a-z][^>]*\sclass\s*=", re.I), "ERROR", "class 属性会被剥离，请用内联 style"),
     (re.compile(r"<[a-z][^>]*\sid\s*=", re.I), "ERROR", "id 属性会被剥离"),
     (re.compile(r"<div[\s>]", re.I), "WARN",
-     "<div> 标签：API 推送路径实测不清洗、样式保留（板块五已发布文章在用）；"
+     "<div> 标签：API 推送路径实测微信不清洗、样式保留；"
      "但编辑器粘贴路径会被改写，官方红线不建议——能用 <section> 就用 <section>"),
 ]
 
@@ -57,7 +54,7 @@ FORBIDDEN_STYLES = [
     (re.compile(r"display\s*:\s*flex", re.I), "WARN",
      "display:flex 微信端支持不稳定（部分机型换行/对齐异常）——多列布局优先用条目卡片或渲染成图片"),
     (re.compile(r"display\s*:\s*table(?:-cell|-row|-column)?\b", re.I), "ERROR",
-     "div 伪表格（display:table/table-cell）微信端堆叠成纯文本（实测教训 0088）——表格用条目卡片 <section> 结构，或渲染成图片"),
+     "div 伪表格（display:table/table-cell）微信端堆叠成纯文本（实测：390px 视口下 scrollWidth 不溢出，宽度判据抓不到，须按 computed style 判）——表格用条目卡片 <section> 结构，或渲染成图片"),
     (re.compile(r"var\s*\(\s*--", re.I), "ERROR", "CSS 变量 var(--x) 不被支持，请写死值"),
     (re.compile(r"url\s*\(\s*['\"]?https?://[^)]*\.(woff2?|ttf|otf|eot)", re.I),
      "ERROR", "外部字体不被支持"),

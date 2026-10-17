@@ -207,7 +207,7 @@ python write/scripts/check_prose.py <稿件.md 或 .txt>     # 使用 - 从标�
 
 ## 附：本技能场景的关系与边界
 
-* 本文件与 `write/SKILL.md` 的写作纪律互补：SKILL.md 的禁用词表覆盖「AI 味启发式」（validate\_wx\_html.py 的 WARNING 源），本文件覆盖「姿势级」禁令与七遍改稿（check\_prose.py 的判定源）。两者不冲突，**推送前都跑**。
+* 本文件与 `write/references/writing-discipline.md`、`write/references/de-ai-measures.md` 分工：`validate_wx_html.py` 的词表覆盖「AI 味启发式」（WARNING 源），本文件覆盖「姿势级」禁令与七遍改稿（`check_prose.py` 的判定源）。两者不冲突，**推送前都跑**。
 
 * 命中之后的「怎么改」与机器查不出的部分，见 `write/references/de-ai-measures.md`（去 AI 味操作手册：词汇六类黑名单与改写、句式十四姿势反例→正例、结构六特征、内容三层人工冷读、词表维护规则）。三份文档（本文件 + de-ai-measures.md + 两份脚本）的判定口径一致，更新词表须同一轮进行。
 

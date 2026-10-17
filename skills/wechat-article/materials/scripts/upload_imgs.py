@@ -23,6 +23,8 @@ import time
 WX = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                   "scripts", "wx_api.py")
 
+UPLOADIMG_MAX_BYTES = 1024 * 1024      # media/uploadimg 官方口径：大小必须在 1MB 以下
+
 # 加载 wx_api.py 模块（复用其函数，避免重复实现与凭据不一致）
 _spec = importlib.util.spec_from_file_location("wx_api", WX)
 wx = importlib.util.module_from_spec(_spec)
@@ -83,6 +85,27 @@ def main():
                 print("WARN 本地路径不存在(跳过):", url)
     if not need:
         print("无可上传图片"); return
+
+    # 上传前尺寸预检：超限图不占请求配额，先本地判掉再谈 token
+    # （media/uploadimg 官方口径「图片仅支持jpg/png格式，大小必须在1MB以下」，
+    #   超限报 40009 invalid image size；10MB 是 material/add_material 封面口径，
+    #   见 references/api-docs.md「官方限额」）
+    over = []
+    for p in sorted(need):
+        try:
+            size = os.path.getsize(p)
+        except OSError as e:
+            print("FAIL 读不到文件 %s：%s" % (p, e), file=sys.stderr)
+            sys.exit(1)
+        if size > UPLOADIMG_MAX_BYTES:
+            over.append((p, size))
+    if over:
+        for p, size in over:
+            print("FAIL %s：%d 字节 > 上限 %d 字节（media/uploadimg 限 1MB）"
+                  % (os.path.basename(p), size, UPLOADIMG_MAX_BYTES), file=sys.stderr)
+        print("处理：压缩到 1MB 以下（降分辨率或改质量重存）后重试；封面走 "
+              "wx_api.py cover（add_material，10MB 口径）不受此限。", file=sys.stderr)
+        sys.exit(1)
 
     appid = os.environ.get("WECHAT_APPID")
     secret = os.environ.get("WECHAT_SECRET")

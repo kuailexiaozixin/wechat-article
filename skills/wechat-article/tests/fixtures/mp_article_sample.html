@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta property="og:title" content="公众号排版：从草稿到发布的六道工序">
+<meta property="og:article:author" content="图层编辑室">
+<meta property="og:account_name" content="图层">
+<meta property="article:published_time" content="2026-04-18 09:30">
+<meta property="og:image" content="https://mmbiz.qpic.cn/mmbiz_jpg/COVERSAMPLE/0?wx_fmt=jpeg">
+<meta property="og:description" content="把排版拆成可复核的六道工序，逐道给出验收标准。">
+<title>公众号排版：从草稿到发布的六道工序</title>
+</head><body>
+<div class="rich_media_content">
+<div id="js_content" style="visibility: hidden;">
+<section style="margin:0 0 12px;">
+<p style="font-size:16px;">公众号排版常被当成审美问题，实际是工程问题：一篇文章从草稿到发布，要过的不是「好不好看」，而是六道能被复核的工序。工序没走全，改十遍样式也补不回结构上的窟窿。下面按顺序把六道工序拆开，每道给出验收标准和最容易出错的位置。</p>
+</section>
+<section>
+<h2>第一道：结构先于样式</h2>
+<p>动样式之前先定结构。结构指的是标题层级、板块边界与图片位置三件事。标题层级只留两级：一级用于大章节，二级用于章内小节，再深的层级在手机上会被读成噪声。板块边界用外边距表达，不要用分割线堆——分割线在手机端会把一篇文章切得七零八落，读者的滚动节奏被打断，读完记不住哪部分属于同一个论点。图片位置要先占位再写文案，因为图片的实际高度决定了上下留白要不要补。</p>
+<p><strong>验收标准</strong>：把所有内联样式临时去掉，页面还能看出章节划分，结构就算立住了。这一步做扎实，后面的样式改动才不会反复推倒重来。</p>
+</section>
+<section>
+<h2>第二道：正文节奏</h2>
+<p>手机端一屏约三到四行，段长超过五行就应当拆。拆段不是把句子截短，而是把一屏里塞进的论点数量压到一个：<em>一段只讲一件事</em>。长句要拆，但拆完要留连接词，否则读起来像清单。</p>
+<ul>
+<li>每段一个论点，段首给出这一段的结论。</li>
+<li>数据与出处放在同一个段落里，不要隔段引用。</li>
+<li>转场句独立成段，避免读者把转场误读为论证。</li>
+</ul>
+<ol>
+<li>先通读一遍，标出所有超过五行的段落。</li>
+<li>再读一遍，判断每个长段是几个论点被塞在了一起。</li>
+<li>按论点拆段，拆完检查连接关系是否仍然成立。</li>
+</ol>
+</section>
+<section>
+<h2>第三道：代码块与引用</h2>
+<p>代码块是排版里最容易失效的部分。微信编辑器会剥离 <span style="font-family:monospace;">pre</span> 标签并折叠空格，因此代码块必须逐行写成段落，行首空格用不换行空格补齐。</p>
+<pre><code>python read/scripts/read_wechat.py "https://mp.weixin.qq.com/s/xxxx" -o out.md
+python write/scripts/validate_wx_html.py draft.html
+python scripts/check_draft.py "$MEDIA_ID" --source draft.html</code></pre>
+<blockquote>引用的官方文档要给出接口名与参数字段，不要只写「见官方文档」——读者无法核对的引用等于没有引用。</blockquote>
+<p>上面的命令块在推送后应当逐行显示。若某行被折叠成一行，说明结构被剥离，需要回到校验环节复查。</p>
+</section>
+<section>
+<h2>第四道：图片与配图</h2>
+<p>正文图片必须走上传接口换成微信自己的图床地址，本地路径在外链场景必然显示为空白。图片地址里的格式参数不能删，删掉后部分客户端会按原图尺寸拉取，加载时间成倍增加。</p>
+<p><img data-src="https://mmbiz.qpic.cn/mmbiz_png/IMGSAMPLE/640?wx_fmt=png&amp;wx_lazy=1" class="rich_pages" src="about:blank"></p>
+<p>懒加载标记只是编辑器用来省流量的，交付前要清掉，否则在部分机型上图片要滑动到视口才显示，截图核对时会误判为坏图。</p>
+</section>
+<section>
+<h2>第五道：移动端复核</h2>
+<p>在 390 像素宽度下通读一遍，重点看三件事：横向有没有溢出、表格有没有堆成纯文本、代码块有没有被压扁。这三类问题在桌面宽度下都不显形，必须换窄视口才暴露。</p>
+<p><a href="https://mp.weixin.qq.com/">微信官方接口文档</a>里对正文支持的标签范围有明确说明，改动前先确认标签在允许范围内。</p>
+</section>
+<section>
+<h2>第六道：发布前回读</h2>
+<p>草稿推送完成后要回读一次，把回读到的正文与本地交付稿逐字对比。这一步查的是平台侧改写：编辑器可能吃掉某些样式，也可能改写图片地址。对比结果一致才算交付完成，不一致就按差异修脚本再重推。</p>
+<p>六道工序走完，一篇文章才算从草稿走到可发布。任何一道跳过，问题都会推迟到更难定位的位置出现——发布之后被读者指出，代价最高。</p>
+</section>
+</div>
+</div>
+<script nonce="">var a = 1;</script>
+</body></html>

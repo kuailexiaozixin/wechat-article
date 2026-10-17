@@ -1,0 +1,119 @@
+{
+  "skill_name": "wechat-article",
+  "note": "路由评测：每条给出用户话术、应选的子技能与命令、可逐条核对的期望。命令的字段与 flag 与各脚本 argparse/docstring 一致，可用 `python <script> --help` 复核。",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "帮我写一篇公众号文章，主题是「团队上 CI 之后为什么构建还是慢」，要有真实代码证据，写完排好版推草稿箱。",
+      "expected_output": "路由到 write/ 全流程：先按 write/references/writing-discipline.md 立素材与说话位置成文，再用 write/references/wx-html-rules.md 的规范（或 write/scripts/build_blocks.py）产出纯 section 内联 HTML，按 write/SKILL.md 的闸口顺序 check_prose → validate_wx_html → qa_mobile 逐道过，最后 scripts/wx_draft_push.py 推送并跑 scripts/check_draft.py --source 回读核验。",
+      "files": [],
+      "expectations": [
+        "成文阶段引用 write/references/writing-discipline.md，开头先立读者场景与问题，不用万能开头",
+        "排版产物是纯 <section> 片段且样式内联，不包 <!DOCTYPE>/<html> 外壳",
+        "闸口顺序为 check_prose → validate_wx_html → qa_mobile → 推送 → check_draft --source，不跳步",
+        "validate_wx_html 有 ERROR 时先改稿，不带错推送"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "article.html 已经校验过了，推到公众号草稿箱，标题《构建慢在哪一层》，摘要「CI 六分钟里真正编译只有 40 秒」。",
+      "expected_output": "用 scripts/wx_draft_push.py --html article.html --title \"构建慢在哪一层\" --digest \"CI 六分钟里真正编译只有 40 秒\"；该脚本已内置 validate_wx_html 闸（ERROR>0 直接退出、不取 token）。推送后必跑 scripts/check_draft.py <media_id> --source article.html。凭据只从环境变量 WECHAT_APPID/WECHAT_SECRET 读取。",
+      "files": [],
+      "expectations": [
+        "标题字节数 ≤ 64（约 21 个汉字），摘要 ≤ 120 字符，超限先缩短而不是截断",
+        "不在正文里重复草稿标题，草稿标题与正文标题必须有差异",
+        "成功判据是脚本打印 DRAFT_OK media_id:，随后回读核验而不是只看接口 0",
+        "不打印、不落盘 AppSecret"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "上次推的那篇标题写错了，改个标题重推一下就行。",
+      "expected_output": "这是更新不是新增：先 scripts/wx_api.py draft-list 实查确认 media_id，再用 scripts/wx_api.py draft-update --media <media_id> --title \"新标题\" --digest \"…\" --content article.html（不传 --cover 时脚本自动回读原封面，避免 40007）。若被腾讯 WAF 501 拦截，脚本自动 delete+add 绕行并打印 MEDIA_ID_CHANGED old=… new=…，必须对新 media_id 重跑 scripts/check_draft.py。",
+      "files": [],
+      "expectations": [
+        "选择 draft-update 而不是 draft-add，不产生第二篇草稿",
+        "操作前先 draft-list 核对 media_id，不凭历史记录直接操作",
+        "绕行后告知用户草稿身份已变（旧 media_id 失效）并对新 id 重跑核验",
+        "重推后再跑一次 scripts/check_draft.py <新 media_id> --source article.html 确认正文与源一致"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "看看草稿箱现在有多少篇，把那篇测试稿删掉。",
+      "expected_output": "scripts/wx_api.py draft-count 取总数，scripts/wx_api.py draft-list --offset 0 --count 20 列标题（单页上限 20，返回倒序，超出 total_count 需翻页），按标题确认目标 media_id 后才 scripts/wx_api.py draft-delete <media_id>，返回 {\"errcode\":0} 即成功。",
+      "files": [],
+      "expectations": [
+        "列表与标题一一对应后再删除，不用记忆中的 media_id",
+        "数量超过 20 时按 total_count 翻页，不因单页截断误判缺稿",
+        "删除属于不可逆动作，向用户确认目标篇后才执行"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "草稿验收过了，直接帮我发布出去。",
+      "expected_output": "先 scripts/wx_api.py check-perm 只读探测：个人主体/未认证账号返回 perm:false（48001/53010）时不重试，引导用户到公众号后台 → 内容管理 → 草稿箱手动发布，并附发布前四项手动设置提醒（开赞赏、声明原创、选择合集、创作来源标注）。认证账号 perm:true 才可按官方发布接口自行扩展。",
+      "files": [],
+      "expectations": [
+        "不对 48001 反复重试或改参数硬闯",
+        "说明这四项 API 无对应字段，只能后台手动勾选",
+        "发布结果以后台「已发表」页或用户提供的链接为准，不凭接口猜测"
+      ]
+    },
+    {
+      "id": 6,
+      "prompt": "推上去的文章里代码块缩进全没了，挤成一坨，怎么修？",
+      "expected_output": "根因是微信正文会剥离 <pre> 并折叠空格换行。改成 <section> 承载 + 逐行 <p>（margin:0;text-indent:0）+ 空格转 &nbsp; + 空行 <p>&nbsp;</p>，代码内 < > & 转义。可用 write/scripts/build_blocks.py 按 theme-default.md 的口径生成，改完跑 validate_wx_html.py（<pre> 残留是 ERROR）再 draft-update 重推。",
+      "files": [],
+      "expectations": [
+        "指出 <pre> 被剥离这一具体机制，而不是归因于字体或行距",
+        "给出逐行 <p> + &nbsp; 的结构而不是塞进一个段落",
+        "重推前跑校验，重推后 check_draft.py 回读确认代码块结构"
+      ]
+    },
+    {
+      "id": 7,
+      "prompt": "正文里的图在公众号里一张都不显示，本地 assets 目录下明明有。",
+      "expected_output": "微信端只认 mmbiz.qpic.cn 的正文图 URL，本地相对路径必不显示。用 materials/scripts/upload_imgs.py --html article.html --map imgs.json 批量上传（脚本按 basename 建映射，且上传前逐张预检大小，>1MB 直接 FAIL 并提示压缩或改走封面接口），按映射把 HTML 里的 src 换成 mmbiz URL 后 draft-update 重推，再 check_draft.py 核对图数。",
+      "files": [],
+      "expectations": [
+        "区分正文图接口 media/uploadimg（jpg/png，1MB 以下）与封面接口 material/add_material（10MB 内、多种格式）",
+        "map 键按 basename 命中替换，不用绝对路径键",
+        "重推后回读确认正文 mmbiz 图数等于配图数"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "推送前帮我看一眼手机上看会不会横向溢出、表格挤成一列。",
+      "expected_output": "跑 write/scripts/qa_mobile.py article.html --width 390 --screenshot qa.png：断言 scrollWidth 不超过视口宽度，用计算样式列出 display:table*/grid/flex 节点（伪表格在 390px 下会被压缩，scrollWidth 仍为 390，单看溢出会漏），并报告 naturalWidth==0 的破图。table/grid 判 FAIL，flex 只 WARN。",
+      "files": [],
+      "expectations": [
+        "用浏览器渲染后的计算样式判定，而不是只看 HTML 源码或 CSS 文本",
+        "FAIL 时先改结构（表格改条目卡片 section）再重跑，不带 FAIL 推送",
+        "预览外壳 wrap_preview.py 的产物不作为推送内容"
+      ]
+    },
+    {
+      "id": 9,
+      "prompt": "读一下这篇公众号文章正文，链接是 https://mp.weixin.qq.com/s/xxxxxxxx",
+      "expected_output": "用 read/scripts/read_wechat.py \"<url>\" -o article.md：四层渐进式（Mobile UA → Desktop UA+Cookie → 完整浏览器头 → CDP），成功口径是拿到非空正文并通过质量门（正文节点存在、无验证墙标记、字符数 ≥ --min-chars 默认 800，短文需标题/发布时间/正文节点三者齐备才豁免），输出 Markdown + frontmatter。单 URL 重试不超过 3 次。",
+      "files": [],
+      "expectations": [
+        "只有标题、正文为空时判失败并降级，不当作成功交付",
+        "CDP 层按 read/references/cdp-edge.md 连接本机 Edge，且响应循环读到 id 匹配",
+        "Edge 未开调试端口时说明缺口并给替代路径，不静默少交付"
+      ]
+    },
+    {
+      "id": 10,
+      "prompt": "搜 3 篇讲 OpenTelemetry 的公众号文章，要能直接打开读正文的链接。",
+      "expected_output": "用 search/scripts/search_wechat.py OpenTelemetry -n 3 -r --format json -o hits.json：type=2 关键词搜文章，UA 池轮换 + 首页 cookie 引导，先按 -n 截断再做跳转还原（避免打光 /link 撞 antispider），还原覆盖 302 Location、meta refresh、url+= 片段拼接三形态。命中反爬标记或被 302 回首页时立即停止并说明，搜索结果本身仍交付。还原出的 mp.weixin 链接带 signature 时效，隔时要重新还原，随后交给 read/ 提取正文。",
+      "files": [],
+      "expectations": [
+        "交付真实 mp.weixin.qq.com 链接而不只是搜狗跳转链接",
+        "被 antispider 拦截时停止重试并给出处置建议，不循环撞墙",
+        "不用 tsn/ft/et 时间筛选参数（实测请求会被 302 回首页）"
+      ]
+    }
+  ]
+}

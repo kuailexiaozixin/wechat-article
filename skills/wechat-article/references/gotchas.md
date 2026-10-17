@@ -36,17 +36,18 @@
 可选。超过 120 字符报错或截断。
 
 ### B4. draft-update 必须携带有效 thumb_media_id
-- 现象：`draft-update` 不带 `--cover` 重推 0011 返回 `{"errcode":40007,"errmsg":"invalid media_id"}`，而 `draft-get` 同一 media_id 完全正常；手动携带原封面 thumb 后 `errcode 0`。
+- 现象：`draft-update` 不带 `--cover` 重推已存在的草稿，返回 `{"errcode":40007,"errmsg":"invalid media_id"}`，而 `draft-get` 同一 media_id 完全正常；手动携带原封面 thumb 后 `errcode 0`。
 - 根因：`draft/update` 接口要求 `articles.thumb_media_id` 为有效素材 id——**省略该键或传空串都判 40007**，报错文案误导为 media_id 无效。`draft/get` 的 media_id 与 `draft/update` 相同，无效的是封面字段而非草稿 id。
 - 解决（3.2.1 起）：`wx_api.py` 的 `draft-update` 未传 `--cover` 时自动 `draft-get` 回读原草稿 `thumb_media_id` 再提交，封面保持不变；**`article` 必须在 thumb 回读之后构建**（先构建后回读，article 里仍是空封面，照样 40007）。
-- 验证：0011 修正后经脚本重推 `errcode 0`，draft-get 回读标题/摘要/封面/正文图/代码块全部合格。
+- 验证：修正后经脚本重推 `errcode 0`，draft-get 回读标题/摘要/封面/正文图/代码块全部合格。
 
 ### B5. draft-update 被腾讯 WAF 501 拦截 — 绕行 delete+add
-- 现象：0055 最终版 `draft-update` 连续三次返回 `{"errcode":501,"errmsg":"non-JSON response"}`，raw 为腾讯 WAF 拦截页（`waf.tencent.com/501page.html`）；退避 20s/60s 重试均无效。
-- 对照：同一账号、同一批操作中 `draft-get`（同一 media_id）正常、`draft-add` 正常、`draft-delete` 正常、另一篇 0057 的 `draft-update` 成功——被拦的只有这一条 `draft/update` 请求（写操作、请求体约 47KB）。
+- 现象：某篇长正文（请求体约 47KB）的 `draft-update` 连续三次返回 `{"errcode":501,"errmsg":"non-JSON response"}`，raw 为腾讯 WAF 拦截页（`waf.tencent.com/501page.html`）；退避 20s/60s 重试均无效。
+- 对照：同一账号、同一批操作中 `draft-get`（同一 media_id）正常、`draft-add` 正常、`draft-delete` 正常、同期另一篇的 `draft-update` 成功——被拦的只有这一条 `draft/update` 请求（写操作、大请求体）。
 - 根因：腾讯网关对特定草稿的 `draft/update` 做风控拦截，返回 HTML 而非 JSON；`http_json` 已把非 JSON 包装为 `{"errcode":code,"errmsg":"non-JSON response","raw":...}` 便于诊断（3.0.2 起）。此类拦截与重试次数无关，退避无效。
-- 解决（3.2.2 起）：`draft-update` 连续 501 时**不要继续重试**，改走 `draft-delete <media_id>` + `draft-add`（同标题/摘要/封面/正文）生成新草稿。delete 与 add 实测不受 WAF 拦截，新 media_id 内容完全一致。
-- 验证：0055 删除旧草稿后重新 add，`media_id` 更新，draft-get 核验标题/摘要/封面/正文 mmbiz 图×2/代码块结构与最终 wx 内联版一致。
+- 解决：`draft-update` 连续 501 时**不要继续重试**。3.2.2 记录的处置是手工 `draft-delete <media_id>` + `draft-add`（同标题/摘要/封面/正文）；4.3.0 起 `wx_api.py` 已把这步内置——回读原封面 `thumb_media_id` → delete → add，自动完成绕行。delete 与 add 实测不受 WAF 拦截，新 media_id 内容完全一致。
+- **绕行会换掉草稿身份**：旧 `media_id` 立即失效，脚本打印 `MEDIA_ID_CHANGED old=… new=…`；后续核验与再更新必须改用新 id，对旧 id 跑 `check_draft.py` 只会得到 40007。
+- 验证：删除旧草稿后重新 add，`media_id` 更新，draft-get 核验标题/摘要/封面/正文 mmbiz 图数/代码块结构与最终 wx 内联版一致。
 
 ### B6. 草稿箱可能被外部删改
 **症状：** 按历史记录里的 `media_id` 操作草稿返回 `40007`，或 `draft-count` 数量与记忆不符。
@@ -56,22 +57,22 @@
 ## C. 正文与图片
 
 ### C1. 正文 HTML 约束（关键）
-**唯一权威定义在 `write/SKILL.md`「二、wx 内联版 HTML 硬规范」**。此处只列失败模式：
+**唯一权威定义在 `write/references/wx-html-rules.md`**（流程与闸口顺序见 `write/SKILL.md`）。此处只列失败模式：
 - **样式必须内联**：微信剥离 `<style>` 块。
 - **`<pre>` 代码块会被微信剥离**，空格/换行被折叠，缩进全丢、代码不可读。**必须**用 `<section>` + 逐行 `<p>`（`margin:0;text-indent:0`）+ 空格转 `&nbsp;` + 空行 `<p>&nbsp;</p>`。
 - 代码内 `<` `>` `&` 转义为 `&lt;` `&gt;` `&amp;`。
 - 正文图片必须用 `mmbiz.qpic.cn` 域名（先 `media/uploadimg` 上传换 URL），否则微信端图片不显示；**本地相对路径（`../assets/xxx.png`）必不显示**。
 - 产物应为纯 `<section>` 正文片段（不包 `<!DOCTYPE>`/`<html>` 外壳）。
-- **推送前必跑 `write/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须 `draft-get` 抽查：确认正文图 URL、代码块结构、标题/摘要/封面齐全，再交付验收。
+- **推送前必跑 `write/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须跑 `scripts/check_draft.py <media_id> --source <article.html>`：自动核验正文图 URL、代码块结构、标题/摘要/封面，并比对草稿正文与源文件是否一致，再交付验收。
 
 ### C2. 正文图 URL 失效排查
-`uploadimg` 返回的 mmbiz URL 官方口径长期有效。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。
+`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前注意正文图尺寸口径：`media/uploadimg` 仅支持 jpg/png 且必须 <1MB，`upload_imgs.py` 已在上传前预检并报 FAIL。
 
 ### C3. mmbiz-map 键约定：必须 basename
-- 现象：0010 首次校验报 3 处图片 ERROR（本地路径未替换），草稿正文图不显示。
+- 现象：某篇首次校验报 3 处图片 ERROR（本地路径未替换），草稿正文图不显示。
 - 根因：upload_imgs.py --map 旧版用**绝对路径**作 map 键（含非 ASCII 时控制台显示乱码），而写作排版按图片 basename 查 URL——src 是素材里的相对路径（assets/fig/xxx.png），与绝对路径键永远匹配不上。
 - 解决（3.2.0 起）：upload_imgs.py 写 map 时键统一为 os.path.basename(p)，写作排版按 basename 命中即换 URL。旧版本生成的 map 文件（绝对路径键）需重建：{os.path.basename(k): v for k, v in raw.items()}。
-- 验证：板块二 0010/0011/0014/0015 全部按 basename 键重建后校验 ERROR=0，推送后 draft-get 正文 mmbiz 图数 = 配图数。
+- 验证：同一系列四篇全部按 basename 键重建后校验 ERROR=0，推送后 draft-get 正文 mmbiz 图数 = 配图数。
 
 ## D. 校验与写作
 
@@ -79,12 +80,12 @@
 - 用法：`python write/scripts/validate_wx_html.py <article.html>`；退出码 1 = 有 ERROR，0 = 通过（WARNING 人工确认）。
 - ERROR 高频来源（实测排序）：图片本地路径/非 mmbiz 域名、`<pre>` 残留、禁用词（「本文」等）、style 属性里的红线样式（position/grid/var/外部字体）。
 - 样式红线只查**元素 style 属性**——代码块文本里的 CSS 示例（如 `.app{display:grid;...}`）不算违规。
-- `<div>` 为 WARN：API 推送路径实测不清洗（板块五已发布文章在用），编辑器粘贴路径会被改写。**新产物一律用 `<section>`**——装饰线用 `<section>` 实现，校验 WARN 清零。
+- `<div>` 为 WARN：API 推送路径实测不清洗、样式保留，编辑器粘贴路径会被改写。**新产物一律用 `<section>`**——装饰线用 `<section>` 实现，校验 WARN 清零。
 - 历史教训：本地路径 HTML 一旦误推，图片全部不显示，事后替换需重推整篇——所以「一步到位 + 推送前校验」是硬流程，不是建议。
 
 ### D2. 写作禁用词替代表达（validate 命中 ERROR）
 正文写作时避开「本文 / 读者 / 首先 / 其次 / 最后，/ 总而言之 / 综上所述 / 值得注意的是 / 众所周知 / 不难发现 / 通过以上 / 我们可以看到」等；命中即 ERROR（完整清单见 validate_wx_html.py 的 BANNED_WORDS，共 12 词）；需改稿重跑校验。实测替代表达：
-- 「它首先是文档」→「它第一身份是文档」（0011 实测）
+- 「它首先是文档」→「它第一身份是文档」（实测改法）
 - 「首先，X；其次，Y」→「X 是一层；Y 是另一层」或「一方面…另一方面…」
 
 ### D3. AI 味启发式检查（validate 3.4.0 起，WARNING 级）

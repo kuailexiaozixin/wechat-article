@@ -3,9 +3,10 @@
 
 用法：python render_mermaid.py <a.mmd> [b.mmd ...]
 输出：每个 .mmd 的同目录同名 .png。
-依赖：playwright（已安装）。
-浏览器 fallback 链（3.4.0 起）：系统 Edge（channel=msedge）→ 系统 Chrome（channel=chrome）
-→ Playwright 默认 Chromium（需已装 ms-playwright 浏览器）。全部不可用时给出明确报错。
+依赖：playwright（pip install playwright），mermaid 运行时从 CDN 加载，需联网。
+浏览器 fallback 链：系统 Edge（channel=msedge）→ 系统 Chrome（channel=chrome）
+→ Playwright 默认 Chromium（需先执行 playwright install 或本机已有 ms-playwright 浏览器）。
+全部不可用时打印明确原因并退出码 1，不静默产出空图。
 """
 import os
 import sys

@@ -12,6 +12,7 @@ Usage:
   python wx_draft_push.py --html <path.html> --title "<title>" --digest "<digest>" [--cover <img>]
 
 Steps performed:
+  0. Validate the HTML (write/scripts/validate_wx_html.py); any ERROR blocks the push
   1. GET access_token  (cgi-bin/token)
   2. POST cover image  (cgi-bin/material/add_material?type=image) -> thumb_media_id
   3. POST draft        (cgi-bin/draft/add) -> media_id
@@ -90,8 +91,23 @@ def parse_args(argv):
     return kv
 
 
+def load_validator():
+    """加载 ../write/scripts/validate_wx_html.py 的 validate()（复用，不重复实现）。"""
+    import importlib.util
+    vp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                      "write", "scripts", "validate_wx_html.py")
+    spec = importlib.util.spec_from_file_location("validate_wx_html", vp)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.validate
+
+
 def main():
-    kv = parse_args(sys.argv[1:])
+    argv = sys.argv[1:]
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        sys.exit(0)
+    kv = parse_args(argv)
     appid = os.environ.get("WECHAT_APPID")
     secret = os.environ.get("WECHAT_SECRET")
     if not appid or not secret:
@@ -99,6 +115,21 @@ def main():
         sys.exit(1)
     if not kv.get("html"):
         print("ERR: --html <path> is required")
+        sys.exit(1)
+
+    # 推送前校验闸（根 SKILL.md 安全习惯第 2 条）：ERROR 必须为 0，先于取 token 失败快
+    with open(kv["html"], "r", encoding="utf-8") as f:
+        content = f.read()
+    validate = load_validator()
+    errors, warnings, _ = validate(content, kv["html"])
+    if warnings:
+        print(f"NOTE validate WARNING ×{len(warnings)}（人工逐项确认，不阻断）:")
+        for w in warnings:
+            print("   •", w)
+    if errors:
+        print(f"ERR PUSH_BLOCKED 校验 ERROR ×{len(errors)}，禁止推送:", file=sys.stderr)
+        for e in errors:
+            print("   •", e, file=sys.stderr)
         sys.exit(1)
 
     tok = get_token(appid, secret)
@@ -116,9 +147,6 @@ def main():
             print("COVER media_id:", thumb)
         else:
             print("WARN cover upload:", json.dumps(up, ensure_ascii=False))
-
-    with open(kv["html"], "r", encoding="utf-8") as f:
-        content = f.read()
 
     article = {
         "title": kv.get("title", ""),

@@ -30,7 +30,8 @@
   - 正文图片必须先 uploadimg 换成 mmbiz.qpic.cn URL 才能显示。
   - 微信会剥离 <style> 与 <pre>；代码块必须用 <section>+逐行<p>+&nbsp; 结构。
   - draft-add/draft-update 的 --source-url 对应官方 content_source_url（原文链接，可选）。
-  - draft-update 被腾讯 WAF 501 拦截时自动绕行：回读原封面 → delete 旧草稿 → add 新草稿，返回新 media_id（原 media_id 失效）。
+  - draft-update 被腾讯 WAF 501 拦截时自动绕行：回读原封面 → delete 旧草稿 → add 新草稿，
+    返回新 media_id 并打印 MEDIA_ID_CHANGED 提示（原 media_id 失效，须对新 id 重跑 check_draft.py）。
 """
 import os
 import sys
@@ -42,6 +43,9 @@ import urllib.error
 import urllib.parse
 
 API = "https://api.weixin.qq.com/cgi-bin"
+
+COMMANDS = ("token", "cover", "uploadimg", "draft-add", "draft-update",
+            "draft-get", "draft-list", "draft-count", "draft-delete", "check-perm")
 
 
 def http_json(url, data=None, headers=None, method=None):
@@ -127,6 +131,16 @@ def main():
     argv = sys.argv[1:]
     cmd = argv[0] if argv else ""
     kv = parse_args(argv[1:])
+
+    # 用法查询与未知子命令一律先于凭据与 token 请求：拼错的子命令不该消耗一次接口调用
+    if cmd in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    if cmd not in COMMANDS:
+        if cmd:
+            print("ERR 未知子命令 %r，可用：%s" % (cmd, " ".join(sorted(COMMANDS))), file=sys.stderr)
+        print(__doc__, file=sys.stderr)
+        sys.exit(1)
 
     appid = os.environ.get("WECHAT_APPID")
     secret = os.environ.get("WECHAT_SECRET")
@@ -225,9 +239,14 @@ def main():
                 if "media_id" in add_res:
                     res = {"errcode": 0, "bypass": True, "old_media_id": kv["media"],
                            "media_id": add_res["media_id"]}
+                    # 绕行改变了草稿身份：旧 id 已失效，后续核验/更新必须用新 id
+                    print("MEDIA_ID_CHANGED old=%s new=%s 请对新 id 重跑 check_draft.py"
+                          % (kv["media"], add_res["media_id"]), file=sys.stderr)
                 else:
                     res = {"errcode": -1, "bypass": True, "delete_result": del_res,
                            "add_result": add_res}
+                    print("ERR BYPASS_FAILED delete+add 绕行未成功，草稿状态未知：请先 "
+                          "draft-list 实查再决定重推或删除", file=sys.stderr)
         print(json.dumps(res, ensure_ascii=False))
         return
 
@@ -280,9 +299,6 @@ def main():
         else:
             print(json.dumps({"perm": "unknown", "detail": probe}, ensure_ascii=False))
         return
-
-    print(__doc__)
-    sys.exit(1)
 
 
 if __name__ == "__main__":
