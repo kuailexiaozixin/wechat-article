@@ -107,12 +107,19 @@
     {
       "id": 10,
       "prompt": "搜 3 篇讲 OpenTelemetry 的公众号文章，要能直接打开读正文的链接。",
-      "expected_output": "用 search/scripts/search_wechat.py OpenTelemetry -n 3 -r --format json -o hits.json：type=2 关键词搜文章，UA 池轮换 + 首页 cookie 引导，先按 -n 截断再做跳转还原（避免打光 /link 撞 antispider），还原覆盖 302 Location、meta refresh、url+= 片段拼接三形态。命中反爬标记或被 302 回首页时立即停止并说明，搜索结果本身仍交付。还原出的 mp.weixin 链接带 signature 时效，隔时要重新还原，随后交给 read/ 提取正文。",
+      "expected_output": "用 search/scripts/search_wechat.py OpenTelemetry -n 3 -r --format json -o hits.json：type=2 关键词搜文章，UA 池轮换 + 首页 cookie 引导，先按 -n 截断再做跳转还原（避免打光 /link 撞 antispider），还原覆盖 302 Location、meta refresh、url+= 片段拼接三形态。命中反爬标记或被 302 回首页时立即停止并说明，搜索结果本身仍交付。还原出的 mp.weixin 链接带 signature 时效，隔时要重新还原，随后交给 read/ 提取正文。只要某时间段的文章时用 --after/--before 过滤：按结果页自带 timeConvert 时间戳在客户端筛（闭区间，--before 含当天全天，无时间戳的条目丢弃并计数），依旧不给请求加 tsn/ft/et/ss_st；带时间过滤而未显式给 --pages 时默认翻满 10 页，NOTE 里报告窗内条数与观测日期跨度。",
       "files": [],
       "expectations": [
         "交付真实 mp.weixin.qq.com 链接而不只是搜狗跳转链接",
         "被 antispider 拦截时停止重试并给出处置建议，不循环撞墙",
-        "不用 tsn/ft/et 时间筛选参数（实测请求会被 302 回首页）"
+        "不用 tsn/ft/et 时间筛选参数（实测请求会被 302 回首页）",
+        "--after/--before 用结果页时间戳在客户端筛，搜索 URL 里不出现 tsn/ft/et/ss_st 时间参数",
+        "窗口内没读到时先看 NOTE 的观测日期跨度，不能把「只翻了一页没有」当成搜狗没收录",
+        "被拦、传输层异常、真的 0 条三种退 1 形态按 NOTE 文案区分，不把一次超时说成搜狗拦截",
+        "HTTP 403/429/503 按「被拦截」处置并在还原期熔断，不逐条撞 /link；还原目标主机不是 mp.weixin.qq.com 时不落 resolved，条目仍带搜狗跳转链接兜底",
+        "--account 只在客户端对结果页已解析出的公众号名做不区分大小写的子串筛选，不发 type=1 请求；命中 0 条时 NOTE 报出本次读到过的公众号名，不静默返回空",
+        "--dump 把每一页原始 HTML（含被拦页，带 blocked_page 标记）落盘供 --fixture 离线复现；写盘失败只打 NOTE 并照常交付结果，不让落盘把搜索弄崩",
+        "--format json 顶层 notes 数组与 stderr 打出的 NOTE 逐条一致；熔断后未发起请求的条目带 resolve_skipped 而不是 resolve_error，两者在交付面可区分"
       ]
     }
   ]
