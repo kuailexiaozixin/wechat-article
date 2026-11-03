@@ -2,7 +2,7 @@
 """theme-default 组件样张与 build_blocks 模板的逐字一致性测试。
 
 两件事：
-1. 全组件通过样张：把 Write/references/theme-default.md 里每个 ```html 代码块
+1. 全组件通过样张：把 Write/references/b2-typeset/theme-default.md 里每个 ```html 代码块
    逐字拼起来送 validate_wx_html.validate()，ERROR 必须为零——参考文档自身
    写进不合规样式时，这里立刻报红。
 2. 模板一致：build_blocks.DEMO 每个组件渲染结果必须与 md 对应代码块逐字节相等。
@@ -15,7 +15,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-MD = os.path.join(ROOT, "Write", "references", "theme-default.md")
+MD = os.path.join(ROOT, "Write", "references", "b2-typeset", "theme-default.md")
 
 
 def _load(name, relpath):
@@ -45,13 +45,15 @@ def md_sections():
 
 
 def run():
-    v = _load("validate_wx_html", os.path.join("Write", "scripts", "validate_wx_html.py"))
-    B = _load("build_blocks", os.path.join("Write", "scripts", "build_blocks.py"))
+    v = _load("validate_wx_html", os.path.join("Write", "references", "b3-acceptance",
+                                             "scripts", "validate_wx_html.py"))
+    B = _load("build_blocks", os.path.join("Write", "references", "b2-typeset",
+                                         "scripts", "build_blocks.py"))
     fails = []
 
     secs = md_sections()
     if not secs:
-        fails.append("theme-default.md 未解析到「### N. 组件名」小节：文档结构已变，本测试需同步")
+        fails.append("b2-typeset/theme-default.md 未解析到「### N. 组件名」小节：文档结构已变，本测试需同步")
         print("theme-default 一致性：%d 项失败" % len(fails))
         for f in fails:
             print("   FAIL", f)

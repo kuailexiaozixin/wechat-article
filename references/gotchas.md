@@ -57,16 +57,16 @@
 ## C. 正文与图片
 
 ### C1. 正文 HTML 约束（关键）
-**唯一权威定义在 `Write/references/wx-html-rules.md`**（流程与闸口顺序见 `Write/SKILL.md`）。此处只列失败模式：
+**唯一权威定义已按阶段拆分**：标签与样式红线在 `Write/references/b3-acceptance/wx-html-redlines.md`，代码块与条目卡片模板在 `Write/references/b2-typeset/wx-html-templates.md`（流程与闸口顺序见 `Write/SKILL.md`）。此处只列失败模式：
 - **样式必须内联**：微信剥离 `<style>` 块。
 - **`<pre>` 代码块会被微信剥离**，空格/换行被折叠，缩进全丢、代码不可读。**必须**用 `<section>` + 逐行 `<p>`（`margin:0;text-indent:0`）+ 空格转 `&nbsp;` + 空行 `<p>&nbsp;</p>`。
 - 代码内 `<` `>` `&` 转义为 `&lt;` `&gt;` `&amp;`。
 - 正文图片必须用 `mmbiz.qpic.cn` 域名（先 `media/uploadimg` 上传换 URL），否则微信端图片不显示；**本地相对路径（`../assets/xxx.png`）必不显示**。
 - 产物应为纯 `<section>` 正文片段（不包 `<!DOCTYPE>`/`<html>` 外壳）。
-- **推送前必跑 `Write/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须跑 `scripts/check_draft.py <media_id> --source <article.html>`：自动核验正文图 URL、代码块结构、标题/摘要/封面，并比对草稿正文与源文件是否一致，再交付验收。
+- **推送前必跑 `Write/references/b3-acceptance/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须跑 `scripts/check_draft.py <media_id> --source <article.html>`：自动核验正文图 URL、代码块结构、标题/摘要/封面，并比对草稿正文与源文件是否一致，再交付验收。
 
 ### C2. 正文图 URL 失效排查
-`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前先按 `materials/SKILL.md`「图片限制」核对尺寸与格式（`upload_imgs.py` 的预检会拦住超限图）。
+`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前先按 `Write/references/b1-images/image-upload-interfaces.md`「规格限制」核对尺寸与格式（`upload_imgs.py` 的预检会拦住超限图）。
 
 ### C3. mmbiz-map 键约定：必须 basename
 - 现象：某篇首次校验报 3 处图片 ERROR（本地路径未替换），草稿正文图不显示。
@@ -77,7 +77,7 @@
 ## D. 校验与写作
 
 ### D1. 校验脚本（validate_wx_html.py）
-- 用法：`python Write/scripts/validate_wx_html.py <article.html>`；退出码 1 = 有 ERROR，0 = 通过（WARNING 人工确认）。
+- 用法：`python Write/references/b3-acceptance/scripts/validate_wx_html.py <article.html>`；退出码 1 = 有 ERROR，0 = 通过（WARNING 人工确认）。
 - ERROR 高频来源（实测排序）：图片本地路径/非 mmbiz 域名、`<pre>` 残留、禁用词（「本文」等）、style 属性里的红线样式（position/grid/var/外部字体）。
 - 样式红线只查**元素 style 属性**——代码块文本里的 CSS 示例（如 `.app{display:grid;...}`）不算违规。
 - `<div>` 为 WARN：API 推送路径实测不清洗、样式保留，编辑器粘贴路径会被改写。**新产物一律用 `<section>`**——装饰线用 `<section>` 实现，校验 WARN 清零。
@@ -89,7 +89,7 @@
 - 「首先，X；其次，Y」→「X 是一层；Y 是另一层」或「一方面…另一方面…」
 
 ### D3. AI 味启发式检查（validate 3.4.0 起，WARNING 级）
-`validate_wx_html.py` 新增 WARNING 检查：空洞修辞短语（AI_FLAVOR_PHRASES，4.2.1 起扩充至 50 个；完整措施与改写手法见 Write/references/de-ai-measures.md）、正文感叹号 >3、最长段落 >120 字、段落平均 >80 字、「其一其二其三」「一是二是三是」编号排比。命中不阻断推送（退出码仍只看 ERROR），但逐项人工确认——空洞修辞与长段是 AI 味最高发点。
+`validate_wx_html.py` 新增 WARNING 检查：空洞修辞短语（AI_FLAVOR_PHRASES，4.2.1 起扩充至 50 个；完整措施与改写手法见 Write/references/a5-draft/de-ai-playbook.md）、正文感叹号 >3、最长段落 >120 字、段落平均 >80 字、「其一其二其三」「一是二是三是」编号排比。命中不阻断推送（退出码仍只看 ERROR），但逐项人工确认——空洞修辞与长段是 AI 味最高发点。
 
 ## E. 环境与编码
 

@@ -2,6 +2,133 @@
 
 本技能变更记录。**对应关系只到发布线**：`main` 与 `rel-x.y.z` 分支上是「一个版本 = 一个提交 = 一个 tag」，本文件的每个版本段落对应发布线上那一个提交；本地安装目录所在的 `master` 线是工作树快照，按同一版本号提交、不参与发布。两条线没有共同祖先（`git rev-list --max-parents=0 --all` 给出 `8bc11a3` 与 `92a41af` 两个根），跨线 merge/rebase 没有定义，不要尝试。版本号只用在 tag 上，分支一律 `rel-` 前缀——此前 `refs/heads/v4.3.0` 与 `refs/tags/v4.3.0` 同名，本轮改名 `rel-4.3.0`。
 
+## 5.2.0（2026-11-03）A 轨道 5 步→五阶段：体裁收敛为研究性专业文章，三份散文规范拆解归位
+
+**体裁收敛**：本技能只服务一种体裁——面向财务、税务、法律、金融、经济领域的**研究性专业文章**，
+读者是同行。原 A 轨道按「技术博客散文」组织（记录型/对照型/说明型三种走法、代码即论据、
+answer/长帖/文章三种体），与专业文章的失败模式对不上：这类文章不缺可读性，缺的是**判断站不站得住**。
+
+**结构重划**：A 轨道按 B 轨同一原则（一阶段 = 一个唯一交付物 + 一个出口判据 + 一份规则所有权）
+改为五阶段：
+
+| 阶段 | 交付物 | 出口判据 | 脚本 |
+|---|---|---|---|
+| A1 立意 | `thesis.json` | 六要素齐备、结论带判断与边界 | `thesis_check.py` |
+| A2 结构 | `outline.json` | 每节回指分论点、交接关系齐、字数预算一致 | `outline_check.py` |
+| A3 素材 | `materials.json` | 每节材料达门槛、每条有来源、pending 清零 | `material_ledger.py` |
+| A4 逻辑 | `logic.json` | 四类查询全过 | `logic_graph.py` |
+| A5 成文 | `draft.md` | `check_prose` 清零 + 无重复段落 + 七遍改稿 | `check_prose.py`、`check_duplicates.py` |
+
+**新增四支判据脚本**：A4 覆盖「写完后自查」的四类查询——孤证章节（按本节自派材料判，不按所属
+分论点判，否则空壳章节会因为兄弟节有料而蒙混过关）、`warrant` 为空的断头论证、术语表外的写法、
+与同系列冲突却未标 `rebuttal`。A1/A2/A3 把「结论具体性」「章节回指与交接」「材料门槛与来源身份」
+变成可执行口径，四支都只判形状，判不了思想。
+
+**三份旧文档拆解归位并删除**：`writing-discipline.md`、`human-writing-nonfiction.md`、
+`de-ai-measures.md` 拆入 a1-a5 五个目录（删除前逐条核对 44 个关键事实点，其中 10 项确认为
+技术博客体裁专属、随体裁收敛一并废弃），`Write/references/` 顶层不再有 A 轨文档。
+`check_prose.py`、`check_duplicates.py` 从 `Write/scripts/` 移入
+`Write/references/a5-draft/scripts/`，`Write/scripts/` 目录随之清空。
+
+**A4 的第五层收口**：原方法论列到「句子成分与词汇」层。逐词建 JSON 的维护成本高于收益
+（成本一旦超过收益，这一步就会被跳过，等于什么都没有），故第五层只落到**术语一致性**——
+`terms` 表钉住全篇唯一写法，正文出现表外写法即 FAIL；词汇搭配交给 A5 的行文规范与词表。
+
+**B3 的词表指针同步**：三处词表同轮更新的维护规则从 `de-ai-measures.md` §7 迁到
+`a5-draft/de-ai-playbook.md` 第七节，`validate_wx_html.py`、`static-gate-rules.md`、
+`wx-html-redlines.md`、`acceptance-gates.md`、`references/gotchas.md` 五处指针已改指。
+
+**新增判据测试** `tests/test_a_track_gates.py`：A1-A4 正向 4 例 + 反向 16 例（空模板、空泛结论、
+翻案腔结论、陈述句问题、claim_ref 指空、对仗标题、空交接说明、字数失配、pending 台账、未核实材料、
+全篇无一手事实、材料数不足、空 warrant、术语漂移、系列冲突、孤证章节）+ 词表一致性与废弃引用核对。
+`run_all.py` 现为 8 通过 / 1 跳过（playwright）/ 0 失败。
+
+## 5.1.0（2026-11-03）B 轨道 7 阶段→5 阶段：验收三闸合一 + 哈希链取代 mtime
+
+**结构**：B1-B7 收敛为 **B1 配图 → B2 排版 → B3 验收 → B4 推送 → B5 回读**。原 B3 静态校验、
+B4 真机渲染、B5 人工签字合并为 `Write/references/b3-acceptance/`（三道子闸判据互不覆盖但
+裁决的是同一份 HTML 的同一个问题——「能不能推」，且旧 B6 推送的 `--b5/--b3/--b4` 全是可选
+参数，漏传即绕过，三道闸变成三道建议）；B6→`b4-push/`、B7→`b5-readback/`。每阶段一个
+唯一交付物 + 一个出口判据，阶段间靠调用上游能力而非引用上游文档。
+
+**判据权威拆分**：共享规则源 `Write/references/wx-html-rules.md` 按消费方拆分——§一形态+§二红线
+→ `b3-acceptance/wx-html-redlines.md`，§三模板+§四正文排版 → `b2-typeset/wx-html-templates.md`
+（拆分前做了 37 项事实点覆盖核对），原文件删除；`theme-default.md` 迁入 `b2-typeset/`（主消费者）。
+
+**哈希链取代 mtime**：新增 `b3-acceptance/scripts/acceptance_pack.py` 四子闸编排器，对 HTML
+原始字节算 sha256 写入 `acceptance.json` → B4 `push_gate.py` **`--acceptance` 必填**并核对指纹
+（验收后改稿即拒，exit 1）→ B5 `readback_check.py` 用哈希比对「改了没重推」，无哈希旧记录
+退回 mtime 兜底。验收三态：PASS / PENDING（渲染环境不满足，exit 2，不许推）/ FAIL。
+
+**去重与删除**：`typeset_plan.py` verify/audit 删去与 validate_wx_html 重叠的四项形态判据与两项
+image.url 判据（红线唯一权威归 B3）；`figure_manifest.py` 删 `scan` 子命令（HTML 反查依赖
+排版产物，放在 B1 形成环形依赖，移交 B3 判据）；`render_mermaid.py` 修 import 期 playwright
+崩溃（改函数内延迟 import），`wrap_preview.py`、`readback_check.py` 补 `-h`。全链 6 场景冒烟
+（含伪造包、验收后改稿、WAF 501 委托链）与 `tests/run_all.py` 均通过。
+
+## 5.0.0（2026-11-03）子技能 5→3：`draft/`、`materials/` 并入 `Write/` 的 B1-B7 交付轨道
+
+破坏性结构变更，故主版本跳。原来「写文章」这件事被切成三个子技能（`Write/` 写作排版、
+`materials/` 传图、`draft/` 推草稿），但一条交付链上每一步都要翻下一份文档，而三份文档里
+「正文图必须先换 mmbiz URL」「推送前必跑校验」这类口径各写了一遍、措辞不同，改一处忘两处
+的风险随文档数增长。本轮把它收敛成一条轨道：`Write/SKILL.md` 里 **A 轨道（内容 A1-A5）+
+B 轨道（交付 B1-B7）**，每个流程一个目录，目录内自带说明文档与 `scripts/`。
+
+**落点与归属**：
+
+| 流程 | 目录 | 文档 |
+|---|---|---|
+| B1 配图上传 | `Write/references/b1-images/` | `image-upload-interfaces.md`（materials 全部口径）、`figure-manifest-spec.md`、`image-flow-steps.md` |
+| B2 排版 | `Write/references/b2-typeset/` | `typeset-workflow.md` |
+| B3 静态校验 | `Write/references/b3-validate/` | `static-gate-rules.md` |
+| B4 真机渲染 | `Write/references/b4-render/` | `render-gate-rules.md` |
+| B5 人工签字 | `Write/references/b5-manual/` | `manual-signoff-checklist.md` |
+| B6 推送 | `Write/references/b6-push/` | `draft-push-parameters.md`（draft 全部口径） |
+| B7 回读 | `Write/references/b7-readback/` | `readback-verification.md` |
+
+文档名按用户要求不用 `README` 这类笼统名，名字直接说明这份文档管什么。`materials/SKILL.md`
+与 `draft/SKILL.md` 的口径逐条搬入后两目录移入回收站，仓库内不再有指向它们的引用。
+
+**根 `scripts/` 三支留在原位**（`wx_api.py`、`wx_draft_push.py`、`check_draft.py`）：普查显示
+`cgi-bin/draft/*` 的 14 处引用与 `tests/test_p0_gates.py` 的 4 处 URL 断言都指向**接口名**而不是
+目录，搬动收益为负；B1/B6/B7 的脚本以运行期逐级上溯的方式委托它们，不重复实现接口层。
+`Write/scripts/` 只留 `check_prose.py`、`check_duplicates.py`（属内容轨道 A，不在 B1-B7 之内）。
+
+**迁移暴露的四处加载链断裂**（`git mv` 后必测，不是理论问题）：`upload_imgs.py` 写死
+`dirname()×3` 定位 wx_api；`qa_mobile.py` 同目录 `from render_mermaid import launch_browser`
+（render_mermaid 现属 B1）；`wx_draft_push.py` 的 `load_validator()` 指向旧 `Write/scripts/`；
+`check_prose.py` docstring 里的路径。前三处统一改为「逐级上溯 + 找不到即明确报错退出」，
+**绝不静默降级为「视为通过」**——脚本被拷走或层级变化时静默通过，比报错危险得多。
+
+**新增七支流程封装脚本**：`figure_manifest.py`（清单骨架/预检/HTML 反查/mermaid 转条目）、
+`typeset_plan.py`（排版计划、漏段与凭空加段审计、产物形态自检）、`static_check.py`（批量静态闸，
+委托同目录 `validate()`）、`render_gate.py`（环境预检/渲染留痕/截图核对，**exit 2 = 环境不满足、
+exit 1 = 稿件不合格**，两者必须分开，否则会把环境问题读成内容问题去改好稿子）、
+`manual_signoff.py`（核对单/签字留痕/供 B6 校验，拒绝无截图与空结论的签字）、
+`push_gate.py`（闸序总控 + title ≤64 字节、digest ≤120 字符本地预检 + 捕获 media_id）、
+`readback_check.py`（回读门禁，委托 `check_draft.py`，补「media_id 不靠人工复制」「改了没重推
+即拦」「图数从 B1 清单取」三件事）。**七支都不重新实现判据**，只做批量、门禁、留痕。
+
+**判据测试同步**：`tests/test_qa_mobile.py`、`test_validate_rules.py`、`test_theme_blocks.py`
+改到新落点；`tests/test_evals_routes.py` 的 `TOPS` **移除 `"draft"`, `"materials"`** 并补 docstring
+说明——这是本轮唯一的判据放宽，因为 `draft/add`、`draft/batchget` 是微信接口名不是目录引用，
+留着会让 `references/api-docs.md`、`references/gotchas.md` 里十几处合法的接口名散文集体报红。
+替代方案（把接口名改成非反引号写法）会污染十几处文档，代价更大。
+
+**evals 收尾**：#1、#7 的 `expected_output` 叙述改到 B1-B7 口径（原来写的是「路由到 Write/ +
+materials + draft 三个子技能」），新增 #11「材料不足应停下」（`human-writing-nonfiction.md` §1
+的 ≥5 件门槛与三选一）与 #12「B7 回读必跑」（推送成功 ≠ 内容进对）两条用例，共 12 条。
+`test_evals_routes.py` 会逐条核 `--长选项` 是否存在于所引脚本，本轮核到 23 个选项、453 处
+路径引用，0 项失败。
+
+**本机实测与限制**：`tests/run_all.py` 回到改造前基线（通过 7 · 跳过 1 · 失败 0），
+跳过的仍是 `test_qa_mobile.py`（本机无 playwright，按用户规则不装、严禁安装新的 Chrome/Chromium），
+因此 **B4 渲染闸在本机只能 SKIP，不等于通过**；`render_gate.py preflight` 正确返回 exit 2。
+`readback_check.py` 用真实凭据 + 不存在的 media_id 跑通到平台层，返回 `40007 invalid media_id`，
+证明委托链可用。Git Bash 的 argv 路径魔术（`/tmp`、`/d/` 被改写为 `D:/`，而 heredoc 源码内的
+同字符串不改写）会在「fixture 写一处、校验器读另一处」时造成假失败，测试统一使用工作目录内的
+绝对路径。
+
 ## 4.5.2（2026-10-17）安装件与仓库件不逐字节相同这件事写进文档 + 本地行尾归一
 
 发布 v4.5.1 后做了一次端到端回读：把 `v4.5.1` 装进空目录，再和发布工作树逐个文件比哈希。52 个文件里

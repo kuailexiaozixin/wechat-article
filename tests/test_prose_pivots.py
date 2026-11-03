@@ -10,7 +10,8 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SCRIPT = os.path.join(HERE, os.pardir, "Write", "scripts", "check_prose.py")
+SCRIPT = os.path.join(HERE, os.pardir, "Write", "references", "a5-draft", "scripts",
+                      "check_prose.py")
 
 # PIVOT_PATTERNS 逐条对应（顺序与脚本内常量一致）
 PIVOT_CASES = [

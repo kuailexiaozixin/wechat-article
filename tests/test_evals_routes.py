@@ -52,7 +52,7 @@ def flags_of(script_rel):
 
 
 # ---- 第 3 件事：路径引用与磁盘布局逐字符核对（两种布局共用同一份判据） ----
-TOPS = ("Write", "Read", "Search", "draft", "materials", "scripts", "references", "tests", "evals")
+TOPS = ("Write", "Read", "Search", "scripts", "references", "tests", "evals")
 REF_RX = re.compile(r"(?<![A-Za-z0-9_./-])((?:%s)/[A-Za-z0-9_./-]*)" % "|".join(TOPS),
                     re.IGNORECASE)
 QUOTED_TOP_RX = re.compile(r'"(%s)"' % "|".join(TOPS), re.IGNORECASE)
@@ -96,9 +96,11 @@ def check_layout():
     大小写核对对所有命中做（这才是「双轨」的病根：磁盘上的顶层目录是首字母大写，
     文中写成了全小写，Windows 打开得了、Linux 克隆过来就是 file not found）；
     存在性核对只对**像路径**的引用做——末段带点（文件）或原文以 `/` 结尾（目录）。
-    `draft/add`、`draft/batchget` 是微信接口名不是文件，三段的顶层目录并列是散文写法，
-    都归这条规则之外；两段式并列（第二段本身也是顶层目录）同样不查存在性。
-    覆盖面边界：测试脚本用 `os.path.join(HERE, os.pardir, "Write", "scripts", ...)` 拼出来的
+    两段式并列（第二段本身也是顶层目录）同样不查存在性。
+    5.0.0 起 `draft/`、`materials/` 两个顶层目录已并入 `Write/references/`，相应从 TOPS
+    移除：`draft/add`、`draft/batchget` 是微信接口名而不是目录引用，留着会让全仓十几处
+    接口名文档集体报红。接口名与目录名同形时，判据只认磁盘上还在的那些名字。
+    覆盖面边界：测试脚本用 `os.path.join(HERE, os.pardir, "Write", ...)` 拼出来的
     加载路径不在本判据里（那不是一个连续的路径字符串），那种点由加载方测试自己炸——文件不在
     就是执行异常，run_all 计为失败。
     """

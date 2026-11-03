@@ -10,7 +10,8 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SCRIPT = os.path.join(HERE, os.pardir, "Write", "scripts", "validate_wx_html.py")
+SCRIPT = os.path.join(HERE, os.pardir, "Write", "references", "b3-acceptance",
+                     "scripts", "validate_wx_html.py")
 
 # 规则正则原文 → 只命中该规则的 HTML 片段
 TAG_FIXTURES = {
