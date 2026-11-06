@@ -14,8 +14,10 @@ SKIP = None      # run_all.py 读它：非空即计为「跳过」而非「通�
 
 
 def _load():
-    path = os.path.join(HERE, os.pardir, "write", "scripts", "qa_mobile.py")
-    sys.path.insert(0, os.path.join(HERE, os.pardir, "write", "scripts"))
+    path = os.path.join(HERE, os.pardir, "Write", "references", "b3-acceptance",
+                         "scripts", "qa_mobile.py")
+    sys.path.insert(0, os.path.join(HERE, os.pardir, "Write", "references",
+                               "b3-acceptance", "scripts"))
     spec = importlib.util.spec_from_file_location("qa_mobile", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -27,7 +29,8 @@ def run():
     try:
         import playwright  # noqa: F401
     except ImportError:
-        SKIP = "未安装 playwright（pip install playwright），渲染验收未跑"
+        SKIP = ("未安装 playwright，渲染验收未跑（本机装第三方包按 uv 规则进 D:\\Python，"
+               "不用灵犀内置 python-env；不跑 playwright install，也不装新的浏览器）")
         print("qa_mobile 渲染验收：跳过（%s）" % SKIP)
         return []
     Q = _load()

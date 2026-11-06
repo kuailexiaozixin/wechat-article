@@ -4,21 +4,21 @@
 
 ## A. 凭据与权限
 
-### A1. IP 白名单 — errcode 40164
+### A.1. IP 白名单 — errcode 40164
 **症状：** token 调用返回 `{"errcode":40164,"errmsg":"invalid ip <IP> ... not in whitelist"}`。
 **原因：** 公众号开启了「API 调用 IP 白名单」（设置与开发 → 基本配置 → IP白名单），当前出口 IP 不在名单内。
 **修复：** 把报错里的 IP 加入白名单后重试。出口 IP 会随会话变化——再失败就再读新 IP 再加。
 
-### A2. 凭据处理（安全）
+### A.2. 凭据处理（安全）
 - AppID/AppSecret 只从环境变量读，不硬编码、不写日志。
 - 用户粘贴在对话里的密钥：仅本次会话使用，建议重置 AppSecret（旧 secret 立即失效）。
 
-### A3. 发布权限 — errcode 48001 / 53010
+### A.3. 发布权限 — errcode 48001 / 53010
 **症状（实测）：** 发布接口族（`freepublish/submit`）返回 `{"errcode":48001,"errmsg":"api unauthorized"}`；**`freepublish/batchget`（已发布列表）与 `publish-get`（`freepublish/get`）同样返回 48001**（2025-09 实测）——整个发布接口族对无权限账号都不可用，包括只读的列表查询。
 **原因：** 发布能力接口需要账号权限；个人主体账号、企业主体未认证账号及不支持认证的账号已被回收（2025-07 起）。`draft/*` 草稿接口不受影响。
 **修复：** 判定接口无权限后**不要重试**，引导用户在 公众号后台 → 内容管理 → 草稿箱 手动发布；无权限账号的已发布结果也查不到（`publish-list` 同样 48001），以公众号后台「已发表」页为准。`53010` 为同类发布限制错误。
 
-### A4. access_token 有效期
+### A.4. access_token 有效期
 7200 秒（2 小时）。每次调用现取现用，不长期缓存。一次推送只需取一次 token（token → 封面 → 草稿 一次跑完）。
 
 ## B. 草稿推送
@@ -57,16 +57,16 @@
 ## C. 正文与图片
 
 ### C1. 正文 HTML 约束（关键）
-**唯一权威定义在 `write/references/wx-html-rules.md`**（流程与闸口顺序见 `write/SKILL.md`）。此处只列失败模式：
+**唯一权威定义已按阶段拆分**：标签与样式红线在 `write/references/b3-acceptance/wx-html-redlines.md`，代码块与条目卡片模板在 `write/references/b2-typeset/wx-html-templates.md`（流程与闸口顺序见 `write/SKILL.md`）。此处只列失败模式：
 - **样式必须内联**：微信剥离 `<style>` 块。
 - **`<pre>` 代码块会被微信剥离**，空格/换行被折叠，缩进全丢、代码不可读。**必须**用 `<section>` + 逐行 `<p>`（`margin:0;text-indent:0`）+ 空格转 `&nbsp;` + 空行 `<p>&nbsp;</p>`。
 - 代码内 `<` `>` `&` 转义为 `&lt;` `&gt;` `&amp;`。
 - 正文图片必须用 `mmbiz.qpic.cn` 域名（先 `media/uploadimg` 上传换 URL），否则微信端图片不显示；**本地相对路径（`../assets/xxx.png`）必不显示**。
 - 产物应为纯 `<section>` 正文片段（不包 `<!DOCTYPE>`/`<html>` 外壳）。
-- **推送前必跑 `write/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须跑 `scripts/check_draft.py <media_id> --source <article.html>`：自动核验正文图 URL、代码块结构、标题/摘要/封面，并比对草稿正文与源文件是否一致，再交付验收。
+- **推送前必跑 `write/references/b3-acceptance/scripts/validate_wx_html.py`**（ERROR=0 才推）；推草稿后必须跑 `scripts/check_draft.py <media_id> --source <article.html>`：自动核验正文图 URL、代码块结构、标题/摘要/封面，并比对草稿正文与源文件是否一致，再交付验收。
 
 ### C2. 正文图 URL 失效排查
-`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前先按 `materials/SKILL.md`「图片限制」核对尺寸与格式（`upload_imgs.py` 的预检会拦住超限图）。
+`uploadimg` 返回的 mmbiz URL 官方页未写有效期（只返回 `url` 字段），实测按长期可用处理并定期抽查。若图片不显示：先 `draft-get` 确认 HTML 中确为 mmbiz URL（而非本地 `../assets/` 路径——本地路径微信端必不显示）；确为 mmbiz URL 仍不显示，重新 `uploadimg` 换新 URL 后 `draft-update` 重推。重推前先按 `write/references/b1-images/image-upload-interfaces.md`「规格限制」核对尺寸与格式（`upload_imgs.py` 的预检会拦住超限图）。
 
 ### C3. mmbiz-map 键约定：必须 basename
 - 现象：某篇首次校验报 3 处图片 ERROR（本地路径未替换），草稿正文图不显示。
@@ -77,7 +77,7 @@
 ## D. 校验与写作
 
 ### D1. 校验脚本（validate_wx_html.py）
-- 用法：`python write/scripts/validate_wx_html.py <article.html>`；退出码 1 = 有 ERROR，0 = 通过（WARNING 人工确认）。
+- 用法：`python write/references/b3-acceptance/scripts/validate_wx_html.py <article.html>`；退出码 1 = 有 ERROR，0 = 通过（WARNING 人工确认）。
 - ERROR 高频来源（实测排序）：图片本地路径/非 mmbiz 域名、`<pre>` 残留、禁用词（「本文」等）、style 属性里的红线样式（position/grid/var/外部字体）。
 - 样式红线只查**元素 style 属性**——代码块文本里的 CSS 示例（如 `.app{display:grid;...}`）不算违规。
 - `<div>` 为 WARN：API 推送路径实测不清洗、样式保留，编辑器粘贴路径会被改写。**新产物一律用 `<section>`**——装饰线用 `<section>` 实现，校验 WARN 清零。
@@ -89,7 +89,7 @@
 - 「首先，X；其次，Y」→「X 是一层；Y 是另一层」或「一方面…另一方面…」
 
 ### D3. AI 味启发式检查（validate 3.4.0 起，WARNING 级）
-`validate_wx_html.py` 新增 WARNING 检查：空洞修辞短语（AI_FLAVOR_PHRASES，4.2.1 起扩充至 50 个；完整措施与改写手法见 write/references/de-ai-measures.md）、正文感叹号 >3、最长段落 >120 字、段落平均 >80 字、「其一其二其三」「一是二是三是」编号排比。命中不阻断推送（退出码仍只看 ERROR），但逐项人工确认——空洞修辞与长段是 AI 味最高发点。
+`validate_wx_html.py` 新增 WARNING 检查：空洞修辞短语（AI_FLAVOR_PHRASES，4.2.1 起扩充至 50 个；词表与判据全仓唯一一份在 write/references/b3-acceptance/scripts/validate_wx_html.py）、正文感叹号 >3、最长段落 >120 字、段落平均 >80 字、「其一其二其三」「一是二是三是」编号排比。命中不阻断推送（退出码仍只看 ERROR），但逐项人工确认——空洞修辞与长段是 AI 味最高发点。
 
 ## E. 环境与编码
 

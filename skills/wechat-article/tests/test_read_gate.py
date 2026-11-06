@@ -14,7 +14,7 @@ FIX = os.path.join(HERE, "fixtures")
 
 
 def _load():
-    path = os.path.join(HERE, os.pardir, "read", "scripts", "read_wechat.py")
+    path = os.path.join(HERE, os.pardir, "Read", "scripts", "read_wechat.py")
     spec = importlib.util.spec_from_file_location("read_wechat", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -230,8 +230,8 @@ def run():
                      % (R.HTTP_MAX_PER_URL, R.LAYER_TRIES))
     want = "%d 次" % R.HTTP_MAX_PER_URL
     for label, text in (("read_wechat docstring", R.__doc__ or ""),
-                        ("read/SKILL.md", _read_rel("read", "SKILL.md")),
-                        ("read/references/cdp-edge.md", _read_rel("read", "references", "cdp-edge.md"))):
+                        ("read/SKILL.md", _read_rel("Read", "SKILL.md")),
+                        ("read/references/cdp-edge.md", _read_rel("Read", "references", "cdp-edge.md"))):
         if want not in text:
             fails.append("%s 没写出合计上限 %s（常量已改或口径漏同步）" % (label, want))
 

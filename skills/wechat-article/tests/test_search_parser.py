@@ -13,11 +13,11 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIX = os.path.join(HERE, "fixtures")
-sys.path.insert(0, os.path.join(HERE, os.pardir, "search", "scripts"))
+sys.path.insert(0, os.path.join(HERE, os.pardir, "Search", "scripts"))
 
 
 def _load():
-    path = os.path.join(HERE, os.pardir, "search", "scripts", "search_wechat.py")
+    path = os.path.join(HERE, os.pardir, "Search", "scripts", "search_wechat.py")
     spec = importlib.util.spec_from_file_location("search_wechat", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -744,7 +744,7 @@ def run():
     # 22) CLI 出口：--account、--format json 的 notes、空 --account
     import json as _json22
     import subprocess
-    SCRIPT22 = os.path.join(HERE, os.pardir, "search", "scripts", "search_wechat.py")
+    SCRIPT22 = os.path.join(HERE, os.pardir, "Search", "scripts", "search_wechat.py")
     FX22 = os.path.join(FIX, "sogou_type2_sample.html")
 
     def _cli22(*extra):

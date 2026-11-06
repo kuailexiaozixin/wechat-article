@@ -5,13 +5,14 @@
     {
       "id": 1,
       "prompt": "帮我写一篇公众号文章，主题是「团队上 CI 之后为什么构建还是慢」，要有真实代码证据，写完排好版推草稿箱。",
-      "expected_output": "路由到 write/ 全流程：先按 write/references/writing-discipline.md 立素材与说话位置成文，再用 write/references/wx-html-rules.md 的规范（或 write/scripts/build_blocks.py）产出纯 section 内联 HTML，按 write/SKILL.md 的闸口顺序 check_prose → validate_wx_html → qa_mobile 逐道过，最后 scripts/wx_draft_push.py 推送并跑 scripts/check_draft.py --source 回读核验。",
+      "expected_output": "路由到 write/ 全流程：A 轨道一步内完成写作——立判断（核心判断 + 适用边界）→ 定结构（章节架构 + 每节【依据】【形式】【待核验】三标注，编号连续无裸编号）→ 备材料（每 240 字一件有来路的材料、全篇至少一条一手事实，标注来源身份与 verified_at）→ 成文（从具体条文/代码/数字起手，强断言带限定词，空推理桥清零）；**进入 B1 之前必须把文章整理为符合 wx-HTML 规范的 HTML 文档** article-wx.html：纯 <section> 片段、样式全内联、无外部资源、正文图为 __MMP__ 占位，不产出 Markdown 中间稿（规范见 write/references/b3-acceptance/wx-html-redlines.md 与 write/references/b2-typeset/wx-html-templates.md）；A 轨出口判据是 python write/references/b3-acceptance/scripts/validate_wx_html.py article-wx.html 的 ERROR 归零；B 轨道按 write/SKILL.md 的流程表走 B1 配图上传（write/references/b1-images/scripts/upload_imgs.py）→ B2 排版（write/references/b2-typeset/scripts/build_blocks.py 按 write/references/b2-typeset/wx-html-templates.md 产出纯 section 内联 HTML）→ B3 验收（acceptance_pack.py 四子闸合一：静态 write/references/b3-acceptance/scripts/validate_wx_html.py、渲染 qa_mobile.py、人工签字、图数一致性，冻结 html_sha256）→ B4 推送（write/references/b4-push/scripts/push_gate.py --acceptance 必填）→ B5 回读（scripts/check_draft.py --source）。",
       "files": [],
       "expectations": [
-        "成文阶段引用 write/references/writing-discipline.md，开头先立读者场景与问题，不用万能开头",
+        "成文从具体条文/交易/数字起手，不用「随着……发展」这类万能开头",
         "排版产物是纯 <section> 片段且样式内联，不包 <!DOCTYPE>/<html> 外壳",
-        "闸口顺序为 check_prose → validate_wx_html → qa_mobile → 推送 → check_draft --source，不跳步",
-        "validate_wx_html 有 ERROR 时先改稿，不带错推送"
+        "A 轨出口必须先把文章整理成符合 wx-HTML 规范的 article-wx.html 并跑 validate_wx_html 归零，再进 B1；闸口顺序为 A 轨出口 validate_wx_html → qa_mobile → 推送 → check_draft --source，不跳步",
+        "validate_wx_html 有 ERROR 时先改稿，不带错推送",
+        "B 轨道五个阶段按 write/SKILL.md 表序执行，B3 验收包无签字记录或非 PASS 时不进 B4"
       ]
     },
     {
@@ -63,7 +64,7 @@
     {
       "id": 6,
       "prompt": "推上去的文章里代码块缩进全没了，挤成一坨，怎么修？",
-      "expected_output": "根因是微信正文会剥离 <pre> 并折叠空格换行。改成 <section> 承载 + 逐行 <p>（margin:0;text-indent:0）+ 空格转 &nbsp; + 空行 <p>&nbsp;</p>，代码内 < > & 转义。可用 write/scripts/build_blocks.py 按 theme-default.md 的口径生成，改完跑 validate_wx_html.py（<pre> 残留是 ERROR）再 draft-update 重推。",
+      "expected_output": "根因是微信正文会剥离 <pre> 并折叠空格换行。改成 <section> 承载 + 逐行 <p>（margin:0;text-indent:0）+ 空格转 &nbsp; + 空行 <p>&nbsp;</p>，代码内 < > & 转义。可用 write/references/b2-typeset/scripts/build_blocks.py 按 theme-default.md 的口径生成，改完跑 validate_wx_html.py（<pre> 残留是 ERROR）再 draft-update 重推。",
       "files": [],
       "expectations": [
         "指出 <pre> 被剥离这一具体机制，而不是归因于字体或行距",
@@ -74,7 +75,7 @@
     {
       "id": 7,
       "prompt": "正文里的图在公众号里一张都不显示，本地 assets 目录下明明有。",
-      "expected_output": "微信端只认 mmbiz.qpic.cn 的正文图 URL，本地相对路径必不显示。用 materials/scripts/upload_imgs.py --html article.html --map imgs.json 批量上传（脚本按 basename 建映射，且上传前逐张预检大小，>1MB 直接 FAIL 并提示压缩或改走封面接口），按映射把 HTML 里的 src 换成 mmbiz URL 后 draft-update 重推，再 check_draft.py 核对图数。",
+      "expected_output": "微信端只认 mmbiz.qpic.cn 的正文图 URL，本地相对路径必不显示。用 python write/references/b1-images/scripts/upload_imgs.py --html article.html --map imgs.json 批量上传（脚本按 basename 建映射，上传前逐张预检大小，>1MB 直接 FAIL 并提示压缩；封面另走 python scripts/wx_api.py cover，两个接口不能互换，口径见 write/references/b1-images/image-upload-interfaces.md）。按映射把 HTML 里的 src 换成 mmbiz URL 后 draft-update 重推，再跑回读核对图数。",
       "files": [],
       "expectations": [
         "区分正文图接口 media/uploadimg（jpg/png，1MB 以下）与封面接口 material/add_material（10MB 内、多种格式）",
@@ -85,7 +86,7 @@
     {
       "id": 8,
       "prompt": "推送前帮我看一眼手机上看会不会横向溢出、表格挤成一列。",
-      "expected_output": "跑 write/scripts/qa_mobile.py article.html --width 390 --screenshot qa.png：断言 scrollWidth 不超过视口宽度，用计算样式列出 display:table*/grid/flex 节点（伪表格在 390px 下会被压缩，scrollWidth 仍为 390，单看溢出会漏），并报告 naturalWidth==0 的破图。table/grid 判 FAIL，flex 只 WARN。",
+      "expected_output": "跑 write/references/b3-acceptance/scripts/qa_mobile.py article.html --width 390 --screenshot qa.png：断言 scrollWidth 不超过视口宽度，用计算样式列出 display:table*/grid/flex 节点（伪表格在 390px 下会被压缩，scrollWidth 仍为 390，单看溢出会漏），并报告 naturalWidth==0 的破图。table/grid 判 FAIL，flex 只 WARN。",
       "files": [],
       "expectations": [
         "用浏览器渲染后的计算样式判定，而不是只看 HTML 源码或 CSS 文本",
@@ -120,6 +121,31 @@
         "--account 只在客户端对结果页已解析出的公众号名做不区分大小写的子串筛选，不发 type=1 请求；命中 0 条时 NOTE 报出本次读到过的公众号名，不静默返回空",
         "--dump 把每一页原始 HTML（含被拦页，带 blocked_page 标记）落盘供 --fixture 离线复现；写盘失败只打 NOTE 并照常交付结果，不让落盘把搜索弄崩",
         "--format json 顶层 notes 数组与 stderr 打出的 NOTE 逐条一致；熔断后未发起请求的条目带 resolve_skipped 而不是 resolve_error，两者在交付面可区分"
+      ]
+    },
+    {
+      "id": 11,
+      "prompt": "帮我写篇 1200 字的公众号文章，讲我们团队为什么把订单模块从 MySQL 迁到 TiDB，我手头只有几句口述。",
+      "expected_output": "先卡材料门槛再动笔：每 240 字至少一件有来路的材料（1200 字需 5 件），现在只有口述，不足。此时给三选一——能查的先查（准则原文、应用指南、裁判文书、统计数据、文献）、一次问完最多三个问题、或缩小题目到材料够为止——不硬编一篇凑字数的稿。成稿后按 write/SKILL.md「A 轨道」出口要求，把文章整理为符合 wx-HTML 规范的 article-wx.html（纯 section 内联片段、无外部资源、正文图 __MMP__ 占位），跑 python write/references/b3-acceptance/scripts/validate_wx_html.py 使 ERROR 归零，再进 B1-B5 交付轨道。",
+      "files": [],
+      "expectations": [
+        "开头先核材料数量与来路，指出不足而不是直接开写",
+        "给三选一方案（能查的先查／一次问完最多三问／缩到约 600 字短答），不编造迁移原因与数字",
+        "没有出处的数字与结论不写进稿，配图上的数字要能按 source_basis 指回去（write/references/b1-images/figure-manifest-spec.md）",
+        "进 B1 之前先把文章整理成符合 wx-HTML 规范的 article-wx.html，validate_wx_html 的 ERROR 归零才进 B 轨道"
+      ]
+    },
+    {
+      "id": 12,
+      "prompt": "刚推的那篇草稿，帮我确认后台里的内容跟我本地这份 article.html 是一样的。",
+      "expected_output": "推送返回 media_id 只证明接口收下了请求，必须回读逐字比对：跑 python write/references/b5-readback/scripts/readback_check.py --record push.json --manifest manifest.json（--record 是 B4 推送落盘的 json，含 media_id 与 html 路径；本脚本不重复实现判据，委托 python scripts/check_draft.py 逐项断言并把正文与源文件归一化后逐字比对）。源文件比推送记录新时脚本直接拦下、不发这次接口调用；有 FAIL 就改稿重推再回读，不交付未核验的 media_id。判据见 write/references/b5-readback/readback-verification.md。",
+      "files": [],
+      "expectations": [
+        "回读判据的唯一实现是 scripts/check_draft.py，readback_check.py 只做委托与留痕，不另写一套规则",
+        "media_id 从 B4 落盘的 push json 读取，不靠人工复制粘贴",
+        "--expect-imgs 默认从 B1 清单的正文图数取，kind 为 cover 的条目不计入 mmbiz 计数",
+        "退出码 2 表示前置条件不满足（记录缺失、源码比记录新、凭据缺失），不当作稿件不合格去改稿",
+        "触发过 WAF 501 绕行时 media_id 已变，必须对新 id 重跑回读（write/references/b4-push/draft-push-parameters.md）"
       ]
     }
   ]

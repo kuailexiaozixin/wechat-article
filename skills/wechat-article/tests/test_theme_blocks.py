@@ -2,7 +2,7 @@
 """theme-default 组件样张与 build_blocks 模板的逐字一致性测试。
 
 两件事：
-1. 全组件通过样张：把 write/references/theme-default.md 里每个 ```html 代码块
+1. 全组件通过样张：把 write/references/b2-typeset/theme-default.md 里每个 ```html 代码块
    逐字拼起来送 validate_wx_html.validate()，ERROR 必须为零——参考文档自身
    写进不合规样式时，这里立刻报红。
 2. 模板一致：build_blocks.DEMO 每个组件渲染结果必须与 md 对应代码块逐字节相等。
@@ -15,7 +15,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-MD = os.path.join(ROOT, "write", "references", "theme-default.md")
+MD = os.path.join(ROOT, "Write", "references", "b2-typeset", "theme-default.md")
 
 
 def _load(name, relpath):
@@ -45,13 +45,15 @@ def md_sections():
 
 
 def run():
-    v = _load("validate_wx_html", os.path.join("write", "scripts", "validate_wx_html.py"))
-    B = _load("build_blocks", os.path.join("write", "scripts", "build_blocks.py"))
+    v = _load("validate_wx_html", os.path.join("Write", "references", "b3-acceptance",
+                                             "scripts", "validate_wx_html.py"))
+    B = _load("build_blocks", os.path.join("Write", "references", "b2-typeset",
+                                         "scripts", "build_blocks.py"))
     fails = []
 
     secs = md_sections()
     if not secs:
-        fails.append("theme-default.md 未解析到「### N. 组件名」小节：文档结构已变，本测试需同步")
+        fails.append("b2-typeset/theme-default.md 未解析到「### N. 组件名」小节：文档结构已变，本测试需同步")
         print("theme-default 一致性：%d 项失败" % len(fails))
         for f in fails:
             print("   FAIL", f)
@@ -86,6 +88,14 @@ def run():
     if "style" in json_keys(B.DEMO):
         fails.append("DEMO 块里出现了 style 参数，样式应由脚本单一持有")
 
+    # 设计变量表（色值）与 build_blocks.V 一致性（表漂移也能被抓住）
+    fv = check_design_vars(B)
+    if fv:
+        print("设计变量一致性：%d 项失败" % len(fv))
+    else:
+        print("设计变量一致性：表色值与 build_blocks.V 一致（%d 个变量）" % len(B.V))
+    fails += fv
+
     print("theme-default 一致性：%d 个组件逐字比对，%d 项失败" % (len(with_blocks), len(fails)))
     for f in fails:
         print("   FAIL", f)
@@ -97,6 +107,28 @@ def json_keys(demo_list):
     for d in demo_list:
         keys.update(d)
     return keys
+
+
+def check_design_vars(B):
+    """设计变量表（theme-default.md「设计变量」节）的色值须与 build_blocks.V 一一对应。
+
+    组件样张的逐字比对间接覆盖了用到的颜色，但「表里写了、组件没用」或「V 里改了、表没更新」
+    这类漂移抓不到——本项把表本身也纳入一致性核对。
+    """
+    text = open(MD, encoding="utf-8").read()
+    m = re.search(r"## 设计变量[^\n]*\n(.*?)(?=\n## |\Z)", text, re.S)
+    if not m:
+        return ["theme-default.md 未解析到「## 设计变量」节（表结构已变，本检查需同步）"]
+    table_hex = set(re.findall(r"#[0-9A-Fa-f]{6}", m.group(1)))
+    v_hex = set()
+    for v in B.V.values():
+        v_hex |= set(re.findall(r"#[0-9A-Fa-f]{6}", str(v)))
+    fails = []
+    if table_hex - v_hex:
+        fails.append("设计变量表有 build_blocks.V 没有的色值：%s" % sorted(table_hex - v_hex))
+    if v_hex - table_hex:
+        fails.append("build_blocks.V 有色值未在设计变量表登记：%s" % sorted(v_hex - table_hex))
+    return fails
 
 
 if __name__ == "__main__":

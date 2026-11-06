@@ -12,7 +12,7 @@ Usage:
   python wx_draft_push.py --html <path.html> --title "<title>" --digest "<digest>" [--cover <img>]
 
 Steps performed:
-  0. Validate the HTML (write/scripts/validate_wx_html.py); any ERROR blocks the push
+  0. Validate the HTML (write/references/b3-acceptance/scripts/validate_wx_html.py); any ERROR blocks the push
   1. GET access_token  (cgi-bin/token)
   2. POST cover image  (cgi-bin/material/add_material?type=image) -> thumb_media_id
   3. POST draft        (cgi-bin/draft/add) -> media_id
@@ -92,10 +92,18 @@ def parse_args(argv):
 
 
 def load_validator():
-    """加载 write/scripts/validate_wx_html.py 的 validate()（复用，不重复实现）。"""
+    """加载 b3-acceptance 的 validate()（复用，不重复实现）。
+
+    校验器已随写作 SOP 迁入 write/references/b3-acceptance/scripts/；此处只解析路径，
+    规则仍由那一份实现——推送闸与 B3 静态闸必须是同一套判据，不能各查各的。
+    """
     import importlib.util
-    vp = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                      "write", "scripts", "validate_wx_html.py")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    vp = os.path.join(root, "Write", "references", "b3-acceptance",
+                      "scripts", "validate_wx_html.py")
+    if not os.path.isfile(vp):
+        raise SystemExit("ERR 推送闸找不到校验器：%s\n"
+                         "     ERROR=0 才允许推送这条判据不能静默跳过。" % vp)
     spec = importlib.util.spec_from_file_location("validate_wx_html", vp)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

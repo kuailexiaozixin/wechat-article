@@ -1,6 +1,416 @@
 # CHANGELOG — wechat-article
 
+## 5.16.0（2026-11-04）表述规范三处缺口补齐：制作痕迹硬闸、被动语态执行链、段落/句子循环审核
+
+**背景**：三篇成稿把 A3 台账的制作说明原样搬进正文与图注（「结尾交代适用前提」「系列定位在这一层收口」「对应台账第一节与第二节」「下面按四步展开」「均标注推断」），并大量使用被动式。当时 `check_prose.py` 与 B3 静态闸全部报绿。查下来是三个真实缺口，不全是执行问题：
+
+1. **制作痕迹无判据**。`revision-protocol.md` 第六遍写了「核验记录留在后台，不进正文」、第七节写了「核验笔记不要漏进正文」，但只属人工冷读层，没有词表、没有正则；`BANNED_WORDS` 仅 12 词，擦掉「本文」后其余痕迹全漏。图注完全不受词表扫描。
+2. **被动式规范写了但执行链断了**。`final-craft.md` 第 40 条要求主动语态优先，`word-tables.json` 的 `patterns.soft` 有正则 `(?:被|为)[^，。；]{1,20}所`，但 `craft-spec.md` 已声明不再跑 `craft_check.py`（依赖已删除的 `logic.json`，实测 `scan` 直接报文件不存在），`check_prose.py` 又没有被动检测。三篇实测 19 / 9 / 16 句被动，零告警。
+3. **段落审核与句子润色只有人工清单**。`paragraph.md` 第四节五问、`sentence.md` 第七/八节逐句审核，都没有可验证的收敛条件。
+
+**本版改动**：
+
+- `check_prose.py` 新增 `PROCESS_TRACES`（26 词）与 `PROCESS_TRACE_PATTERNS`（含「对应第 X 节段 N」「下面按…展开」「系列定位…收口」），命中即 FAIL；新增 `PASSIVE_PATTERNS` 覆盖现代被字句、施事前置式、「为…所」「得以/予以/加以/受到」，按每千字 4.0 句做密度告警（主体不明的被动合法，不硬禁）；系列标题中的中文冒号新增 `on_heading_line()` 豁免，正文冒号仍禁。
+- `validate_wx_html.py` 的 `BANNED_WORDS` 同步扩到 28 词，新增 `PROCESS_TRACE_RULES` 精确形状（避免「条文中」「对应第三档」误伤），图注文本一并纳入扫描。
+- 新增 `b1-images/scripts/check_captions.py`：复用同一批词表专查 `manifest.json`、`figure-requirements.json` 与 HTML 图注，另管内部坐标与空洞图注；B1 出口闸加第 6 步。
+- 新增 `l3-paragraph/scripts/paragraph_audit.py` + `paragraph-audit-spec.md`：以 `thesis.json` 的中心思想与分论点为锚，逐段做二元组余弦；双通道（语义 / 材料回指）避免误伤具体举证段；另查同节相邻段重复空转（≥0.70）与超长段；每段落盘 `off_topic` 等字段作台账留痕。离题判定门槛 60 汉字。
+- 新增 `l4-sentence/scripts/sentence_refine.py` + `sentence-refine-spec.md`：逐句诊断十类可优化信号；`loop` 子命令每轮记录指纹、候选数、事实多重集合，判「空跑 / 停滞 / 丢事实 / 超轮数」四种不收敛；有效候选归零才 `CONVERGED`；确实不宜再改的句子须写 `--allow` 白名单并附理由。用「数字、条款号、书名号专名、英文缩写守恒」作为「完整准确表达原义」的机器代理。
+- `SKILL.md` 的 L3/L4/L5 出口闸各加一道机器判据，B1 加图注闸；`revision-protocol.md` §四新增制作痕迹表、§八词表维护扩到三处、§九检查顺序接入两道新闸；`craft-spec.md` 同步硬禁令兜底说明；`tests/test_refine_gates.py` 覆盖词表一致、标题冒号豁免、离题负例、循环四种不收敛、图注坐标。
+- **A1 标题与立论可读性**（用户本轮追加）：`thesis_check.py` 新增 `ABSTRACT_TITLE_WORDS` 与 `MECHANISM_GROUPS` 两组 WARNING 判据——标题含两个以上抽象概括词（结构／边界／框架／机制／激励…）时提示换成一眼能看出对象的具体说法；`claim` 未覆盖主体、资金与价格、成本与风险三类经济要素时提示把「钱从哪来、价格怎么变、谁付成本谁担风险」写进结论。旧标题「回购增持再贷款的三层结构、三方激励与杠杆边界」实测命中 3 个抽象词并告警，新的系列式标题零告警。判据用 WARNING 而非 ERROR，避免误伤会计、法律等非资金流题材。
+
+**验证**：改动前基线 13/13 通过；改动后 `tests/run_all.py` 14/14 通过、0 跳过、0 失败。段落审核对三篇现稿零误伤，注入离题段后立即 FAIL；句子循环对空跑与丢事实均按预期拦截。
+
+## 5.15.0（2026-11-04）B1 出图裁切居中修复：`crop_whitespace` 替代无效 `getbbox`
+
+**背景**：mermaid 图渲染后内容偏左、右侧大量空白。根因是 `render_mermaid.py` 的自动裁切用 `PIL.Image.getbbox()`——该方法检测"非零像素"，而白色 (255,255,255) 本身非零，白底图永远返回全图边界，裁切从未生效。`gen_table.py` 与自定义 `gen_figure_html.py` 则完全没有裁切。
+
+**本版改动**：
+- `render_mermaid.py` 新增 `crop_whitespace(png_path, pad=16)` 公开函数：先与纯白做 `ImageChops.difference` 得差值图，再对差值图取 `getbbox()` 求内容边界，阈值 >3 过滤近白噪声，裁切后加对称 16px padding 使内容居中。`render_one` 改为调用此函数。
+- `gen_table.py` 复用 `render_mermaid.crop_whitespace`，表格图截图后自动裁切居中。
+- `image-flow-steps.md` 第 2 步补充裁切居中说明。
+- 函数签名 `launch_browser(playwright)` 不变（`qa_mobile.py` 依赖）。
+
+**实测裁切效果（三篇 20 张图全部重出）**：
+- mermaid 图改善最大：`sfisf-mechanism` 1484→552px（去 932px 空白）、`three-layer-structure` 1484→594px、`operation-flow` 1484→525px、`arch-overview` 1484→610px。
+- 表格图与数据图均有改善：`rate-timeline` 2000×672→1836×491、`policy-timeline` 2000×676→1816×498。
+
+**验证**：三篇 mermaid / 表格 / 数据图全部重出，逐张 ViewImage 确认内容居中、留白均匀、无裁切损伤。
+
+## 5.14.0（2026-11-04）L5 职能重构：以 `revision-protocol.md` 为禁令/词表/改稿流程唯一权威
+
+**背景**：L5 五份文档（final-craft / revision-protocol / de-ai-playbook / craft-spec / word-craft）存在职能重合与交叉（详见上一轮分析 A–G 七项），其中 D 项「改稿顺序矛盾」为真实逻辑不一致，优先修正。
+
+**本版改动（一份内容一个权威源，其余只指针）**：
+- **D（优先）**：`de-ai-playbook.md` §一 执行顺序原为 `check_prose→七遍改稿→冷读`，与 `revision-protocol.md` §九（`七遍改稿→check_prose→冷读`）矛盾。已对齐为后者，并标注「改稿流程以 revision §九 为准」。
+- **A**：`de-ai-playbook.md` §二.2/§二.4/§二.5（权威让步腔/万能开头/万能结尾）的实词清单改为指针去 `revision-protocol.md` §六，仅保留改写思路。
+- **B**：`de-ai-playbook.md` §六 冷读四问改为指针去 `revision-protocol.md` §一。
+- **C**：`de-ai-playbook.md` §七 词表维护改为指针去 `revision-protocol.md` §八（revision 为唯一权威）。
+- **E**：`de-ai-playbook.md` §四.6 注水检测改为指针去 `revision-protocol.md` §二「压缩试验」。
+- **G**：`final-craft.md` §六 出口的具体闸口改为指针去 `craft-spec.md` §出口，保留 final-craft 特有的「改稿只在 article.md 源头改」原则。
+- **F**：伴随 A 解决——`revision-protocol.md` §六 仍保留内联实词作权威判据摘要，de-ai 不再重复罗列。
+
+**未改动**：`revision-protocol.md` 作为权威源内容不变；`craft-spec.md`、`word-craft.md` 不变。
+
+**门禁**：`tests/run_all.py` 13/13 通过（无回归）。
+
+## 5.13.0（2026-11-04）新增 L5 词语层规范 `word-craft.md`，并入高危词表，移除桌面 `词语.md`
+
+**背景**：桌面 `词语.md` 是面向财税法专业文章的「词语层（写法·审核·润色）」完整规范，对应 A3 五层里 L5 句子内最细粒度（句→词→字）。此前 L5 只有句/段/文风层文档，缺独立的词语层详规。
+
+**本版改动**：
+- 新建 `write/references/a3-logic/l5-craft/word-craft.md`：词语层完整规范（写法·审核·润色），含情态动词表、近义术语区分、选词三查、高风险词四类、审核六关 + 三秒测试、润色七法、与 L5 三查及 L4 强度分级的衔接、词语清单练习。
+- `word-tables.json` 新增 `risk` 类目（绝对化/收益承诺/政策传闻/夸大/虚动词），作为 AI 选词三查参考清单（注：`check_prose.py` 词表为硬编码元组，不读此文件，见 craft-spec.md / word-craft.md）。
+- 接索引：`craft-spec.md`（选词层指向 word-craft.md）、`build-overview.md`（写作规范段增词语层条目 + 成文工艺文档清单补 word-craft.md）、`ledger-spec.md`（L5 工艺增 word-craft.md + L5 自检项补词语层）、`write/SKILL.md`（A3 L5 规范行增 word-craft.md）。
+- 桌面源文件 `C:\Users\贺新\Desktop\词语.md` 按铁律移入回收站（非物理删除）。
+
+**门禁**：`tests/run_all.py` 13/13 通过；`word-tables.json` 校验合法（top keys: colloquial/praise/risk/patterns）。
+
+## 5.12.0（2026-11-04）build-overview.md / ledger-spec.md 优化完善（L3 合并后校正引用与表述）
+
+**背景**：L3 的 `paragraph-logic.md` 与 `paragraph-craft.md` 已合并为单一 `l3-paragraph/paragraph.md`（磁盘仅余此文件）；并发修改已把散落的失效引用补齐为 `paragraph.md`，门禁（13/13）保持通过。
+
+**本版优化（基于已修正基线）**：
+- `build-overview.md`：
+  - 第 27 行「逻辑/规范」文档清单校正——区分 L2 逻辑文档 `l2-chapter/chapter-logic.md`、L3 单一详规 `l3-paragraph/paragraph.md`（注明承接与工艺已并入、不再单列 logic/craft 分册）、L4 论证规范 `l4-sentence/sentence-craft.md`/`sentence-logic.md` 与完整规范 `l4-sentence/sentence.md`，消除原把详规误列为「逻辑/规范」文档的错位，并恢复对 L4 真实论证规范文档的引用。
+  - 第 43 行「总判据」表述校正：四类为跨层全局总判据，各层本层自检项见 `ledger-spec.md` 第四节。
+  - 第 23 行 L2 四份详规统一加 `l2-chapter/` 前缀，引用一致。
+- `ledger-spec.md`：L3 行（台账模板第三节与「逐部分详规」表）注明段落承接与工艺已并入 `paragraph.md`（单一详规），与 build-overview 对齐。
+
+**规范**：迁移/修改只记本 CHANGELOG，技能正文不保留历史说明。
+
+## 5.11.0（2026-11-04）`l5-craft/sentence-craft.md` 改名为 `l5-craft/craft-spec.md`，消解与 L4 同名冲突并接入流程索引
+
+**问题**：`l5-craft/sentence-craft.md`（L5 三查＋HTML 直出规范）与 `l4-sentence/sentence-craft.md`（L4 论证规范：图尔敏六要素/强度分级/边界）同名不同义，且前者未被 `build-overview.md`／`ledger-spec.md` 任何一处引用，是游离在流程外的孤儿文件。
+
+**修复**：
+- `l5-craft/sentence-craft.md` → `l5-craft/craft-spec.md`；H1 改为「L5 句子内（工艺规范）」，并修正一处相对路径笔误（`../scripts/check_prose.py` → `scripts/check_prose.py`）。
+- `build-overview.md`：L5 行目录标注 `craft-spec.md`；「写作规范与文风」段新增三查＋HTML 直出条目；第 27 行 `sentence-craft.md` 显式锚定 `l4-sentence/`；第 51 行补注「（L4 论证规范，L5 沿用）」。
+- `ledger-spec.md`：L5 成文工艺引用补 `craft-spec.md`。
+- `write/SKILL.md`：L5 行引用改为 `l5-craft/craft-spec.md`。
+- `tests/test_a_track_gates.py`、`evals/evals.json`、`l5-craft/scripts/craft_check.py`：同步改为 `craft-spec.md`／`../craft-spec.md`。
+- `l4-sentence/sentence-craft.md` 及其所有引用（L2-L4 各详规、SKILL.md、CHANGELOG 历史条目）保持不变。
+
+**规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文不保留历史/迁移说明。
+
+## 5.10.0（2026-11-04）L4 补句子层参考文档 `sentence.md`，句子层规范补齐
+
+**新增**：`write/references/a3-logic/l4-sentence/sentence.md`（句子：写作 · 审核 · 润色）——句子层的完整规范，位置在段落之下、词之上：
+
+- **句子定义与作用**：承载一个判断的最小单位（一段通常 3–6 句，每句只传递一个判断）；承载完整判断、建立句间逻辑、承担法律表述精确性、控制阅读节奏、构成合规底线。
+- **写法**：一个句子只做一个判断、主语要出现要明确、专业写作句子公式（主体+行为/状态+法律后果或判断依据）、法律表述五个精确点（情态动词/范围词/时间口径/引用格式/否定位置）、长短句配比。
+- **审核六关**：这句有没有判断、主语在不在、依据挂上号没有、有没有越界（收益承诺/冒充官方口径/绝对化断言/泄露信息）、有没有病句、能不能删；外加"四秒测试"（完整性/支撑性/合规性）。
+- **润色七步**：删虚词、换被动为主动、抽象换具体名词、拆分嵌套句、统一句式制造节奏、打磨核心判断句、出声朗读。
+
+**与技能既有禁令的三处调和**（依技能规则为准，不照搬外部稿）：
+
+1. **"每篇挑 2–3 句打磨成可截图传播的金句"**改为 **"挑一两处确实有材料托住的核心判断句"**——`revision-protocol.md` 与 `de-ai-playbook.md` 均把"每段结尾金句"列为禁令，原文允许"轻微的对仗或反转"亦与"三项以上同构排比"禁令的精神相悖。新文档明确区分"允许压缩具体化核心判断句"与"禁止把普通段落结尾改成金句"。
+2. **情态动词表**改为指向 `sentence-craft.md` 的强度分级表（应当/必须/不得 = 强制，可以/有权 = 允许，宜/建议 = 建议，倾向于/似应 = 倾向，存疑 = 存疑），不自造一套口径。
+3. **降级用语不用"本文认为"**，改按同一张强度分级表降级（与 5.9.0 的段落层处理一致）。
+
+**分工消歧**：`l4-sentence/` 下三份文档职责写进各自开头——`sentence-logic.md` 管句级论证与句病自检、`sentence-craft.md` 管条文依据/强度分级/边界表述、`sentence.md` 管句子层完整规范。
+
+**索引同步四处**：`a3-logic/build-overview.md`（五层表增"└ 句子层详规"行）、`a3-logic/ledger-spec.md`（台账 §四）、`write/SKILL.md`（L4 行）、`l4-sentence/` 两份既有文档的开头分工说明。
+
+**规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
+
+## 5.9.0（2026-11-04）L3 补段落层参考文档 `paragraph.md`，段落层规范补齐
+
+**新增**：`write/references/a3-logic/l3-paragraph/paragraph.md`（段落：写作 · 审核 · 润色）——段落层的完整规范，位置在章节之下、句子之上：
+
+- **段落定义与作用**：一个不能再拆的"主张单元"（通常 3–6 句，只承担一个功能）；封装完整意思、给眼睛休息、构成论证的最小台阶、承担过渡、便于质检复核。
+- **写法**：黄金结构（主张—支撑—回扣四层）、每段只干一件事（功能对照表）、三条硬规矩（引文必挂文号 / 区分事实与判断 / 长段必拆）、段首句写法。
+- **审核五问**：中心句在哪、主张有没有依据（含依据时效性核查）、功能是否单一、删掉损失什么、与上下段衔接顺不顺；外加"三秒测试"（只读段首句与段尾句）。
+- **润色七步**：段落拆分、补段首主张句、把依据提到前面、删导航语、让动词干活、统一段落信息量、出声朗读听接缝与段内节奏。
+
+**与技能既有规则的三处调和**（依技能规则为准，不照搬外部稿）：
+
+1. **段首句不设问**：外部稿列"设问式"段首句，改为不用——段首句要交付判断，不是提问；疑问在段内提出、段内作答。
+2. **降级用语不用"本文认为"**：外部稿用"我们认为""本文倾向于"作降级，改为按 `l4-sentence/sentence-craft.md` 的强度分级表（应当/可以/宜/倾向于/存疑）降级，避免自造口径。
+3. **导航语禁令补正**：外部稿只列"接下来我们看一下"，改为对齐 `l5-craft/de-ai-playbook.md` 已有的路标词清单（"首先需要明确""接下来讨论""最后需要指出"），并说明这类句子把文章变成讲义。
+
+**分工消歧**：`l3-paragraph/` 下三份文档职责写进各自开头——`paragraph-logic.md` 管段落之间的承接与三类段落病、`paragraph-craft.md` 管段内写法要点与注水检测、`paragraph.md` 管段落层完整规范（写法·审核·润色）。
+
+**索引同步四处**：`a3-logic/build-overview.md`（五层表增"└ 段落层详规"行）、`a3-logic/ledger-spec.md`（台账 §三）、`write/SKILL.md`（L3 行）、`l3-paragraph/` 两份既有文档的开头分工说明。
+
+**规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
+
+## 5.8.0（2026-11-04）L2 补章节层参考文档：开头/正文/章节/结尾四份齐备
+
+**新增**：`write/references/a3-logic/l2-chapter/chapter.md`（章节：写作 · 审核 · 润色）——补齐章节这一层的逐部分规范，位置在「开头/正文/结尾」三份之下、段落与句子之上：
+
+- **章节定义与作用**：承载一个独立分论点的完整单元，比段大、比篇小；分装分论点、给读者歇脚点、让论证可复核、可复用可拆合、控制篇幅与重心。
+- **写法**：章节卡（分论点/证据/形式/回应什么四行施工图）、章内五段式（章节导语→主张句→支撑层→解释层→收束句）、章节标题规则、四种章间衔接法（问题牵引/对比并列/递进加深/场景串接）。
+- **审核五关**：独立性、支撑度（含鉴证类业务六项标准）、必要性、篇幅与均衡、合规性（依据有效性、法律规定与本文判断的区分、风险提示与利益冲突披露、案件去标识化、不作证券买卖建议或收益承诺、示例数据标注）。
+- **润色六步**：先调顺序再调文字、删章节里的废话、把"正确的废话"换成具体名词、强化落点句、章节标题通读、出声朗读章节首尾。
+- **三个字判据**：该不该（必要性）/ 对不对（证据能否支撑结论）/ 够不够（展开是否充分）。
+
+**与技能既有规则的两处调和**（依技能规则为准，不照搬外部稿）：
+
+1. **篇幅阈值**：外部稿的"单章超 35% 即拆"改为 **45%**，与 `outline_check.py` 的 `SECTION_SHARE_MAX` 一致（该阈值有测试覆盖）。
+2. **章节标题**：外部稿建议"可以用设问"，改为**不设问**——理由是 `l5-craft/final-craft.md` 规定小标题写内容本身，且同行阅读习惯是先看结论再看依据；设问会让读者停下来等答案。同时补入微信端渲染事实（标题层级用 `<p>` + 加粗/字号，不靠 `<h1>`–`<h6>`，见 `b2-typeset/wx-html-templates.md`）与"裸编号相撞"禁令（L3 自检项）。
+
+**索引同步四处**：`l2-chapter/chapter-logic.md`、`a3-logic/build-overview.md`（五层表"└ 逐部分详规"行）、`a3-logic/ledger-spec.md`（台账 §二）、`write/SKILL.md`（L2 行）。
+
+**规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
+
+## 5.7.0（2026-11-04）L2 补三份逐部分参考文档（开头/正文/结尾），按研究性专业文章体裁适配
+
+**新增**：`write/references/a3-logic/l2-chapter/` 下三份参考文档，各覆盖对应部分的「写作 · 审核 · 润色」：
+
+- `opening.md`（开头）：作用、四类文章的起手落点（`政策解读` / `理论分析` / `案例分析` / `操作指引` 各不相同）、具体锚点写法、三条硬规矩（不铺垫起手、不写"本文将"、强度不越级）、四层审核、移位/删减/换入口/加锚点/调音五步润色、自查清单；
+- `body.md`（正文）：一章一事骨架、章内"主张—依据—回扣"、内容接力式过渡、依据要贴（条文/数据/案例/引语各须交代什么）、四层审核、先结构后文字的润色五步、"标·问·调·读"四步工作流；
+- `ending.md`（结尾）：五种收尾方式、通用结构（回扣 + 抬升 + 收束）、结尾必带四样（适用边界 / 例外情形 / 不确定性 / 来源交代）、三层审核、砍套话→改判断→打磨末句→回扣锚点→朗读的润色五步、自查清单。
+
+**体裁适配**：三份文档按本技能唯一体裁撰写——面向财务、税务、法律、金融、经济领域的**研究性专业文章**，读者是同行（财会人员、税务干部、律师、投行与研究员、监管人员）。开头交出「核心问题 + 结论倾向 + 适用范围」，正文交出「可复用的判断」，结尾交出「可带走的判断 + 边界」；示例统一使用条文号、金额口径、案号、生效时点等可核对材料，不用情绪与故事。
+
+**索引同步**：`l2-chapter/chapter-logic.md` 增「各部分的详细写法」小节列出三份文档；`a3-logic/build-overview.md` 五层表增「└ 逐部分详规」行；`write/SKILL.md` 的 L2 行补三份文档指向。
+
+**规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
+
+## 5.6.0（2026-11-03）a2-structure 并入 a3-logic，A 轨道阶段重排为三阶段
+
+**用户拍板**：把独立的 `a2-structure` 阶段拆掉，其产出物（`outline.json` 结构大纲 + 结构方法论）并入 `a3-logic` 的 **L1（结构奠基 → 框架搭建）**，章节间过渡/呼应并入 **L2**；随之把阶段编号顺移：
+
+- `a3-materials` → **`a2-materials`**（A2 素材）；
+- `a4-logic` → **`a3-logic`**（A3 逻辑·L1-L5 五层）；
+- A 轨道收敛为 **三阶段**：**A1 立意 → A2 素材 → A3 逻辑（L1-L5）**。
+
+**结构顺序（用户确认「结构并入 L1 首步产出」）**：A3 逻辑 L1 先用旧 A2 方法论做「结构奠基」产出 `outline.json`，再交 A2 素材按节派单搜材料，随后 A3 逻辑 L1 做「框架搭建」并续走 L2-L5。
+
+**文件迁移**：
+- `a2-structure/scripts/outline_check.py` → `a3-logic/l1-framework/scripts/outline_check.py`（作为 L1 结构奠基的可选备份判据，口径不变）；
+- `a2-structure` 目录删除；`a2-materials` / `a3-logic` 目录重命名（路径同步）；
+- `framework-build.md` 合并旧结构方法论（六种推进法 / 推进方向 / 体裁标准框架 / outline.json 字段全表 / 起承转合），分「第一部分：结构奠基」「第二部分：框架搭建」。
+
+**全仓指针同步**：所有正文 stage 标签（原 `A2 结构 / A3 素材 / A4 逻辑 / A5 成文`）改为新编号；`evals.json` #1 路由描述改为「A 轨道三阶段」；`tests/test_a_track_gates.py` 的 `A2`/`A3` 脚本变量重命名为 `OUTLINE_CHECK` / `MATERIAL_LEDGER` 并修正判据标签（`outline_check` 现属 A3 逻辑·L1，`material_ledger` 现为 A2 素材）；`references/gotchas.md` 的排障小节编号由 `A1./A2./A3./A4.` 改为 `A.1./A.2./A.3./A.4.`，避免与 A 轨道阶段标签撞名。
+
+**规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
+
+## 5.5.0（2026-11-03）A4 重构：移除代码逻辑图，改为文章台账 + LLM 语义构建
+
+**架构变更（用户拍板）**：A4 原先用代码建图模型（`logic.json` 中转 + L1-L4 四个建图脚本
+`framework.py`/`chapter_graph.py`/`paragraph_graph.py`/`sentence_graph.py`），用户判定「过于
+僵硬死板」。改为 **文章台账（article-ledger.md）驱动的 LLM 语义分析**：L1-L5 不再有脚本，
+每层在做语义分析时把逻辑关系/过渡/呼应做实并写入台账留痕，走完五层由 AI 直接生成
+`article-wx.html`（不做 Markdown 中间产物）。
+
+**删除（逻辑图部分）**：`l1-framework/scripts/`（framework.py + common.py）、
+`l2-chapter/scripts/chapter_graph.py`、`l3-paragraph/scripts/paragraph_graph.py`、
+`l4-sentence/scripts/sentence_graph.py`；`logic.json` 唯一数据文件随之消失；
+各层说明文档的 `*-graph.md` 改名 `*-logic.md`（chapter/paragraph/sentence）。
+
+**新增/改写（台账部分）**：
+- `a4-logic/ledger-spec.md`：文章台账规范（五段结构 + 每层 AI 自检项，替代原脚本 check）；
+- `a4-logic/build-overview.md`：五层总纲与无代码中转数据流，四类查询改挂到台账自检项；
+- `l1-framework/framework-build.md`、`l2-chapter/chapter-logic.md`、
+  `l3-paragraph/paragraph-logic.md`、`l4-sentence/sentence-logic.md`：由「跑脚本建图」
+  改为「语义分析 + 填台账 + 重塑」，保留图尔敏/奥威尔/去 AI 实质；
+- `l5-craft/sentence-craft.md`：三查清单与硬禁令兜底保留，`craft_check.py` 降为可选后备
+  （依赖已删的 `logic.json`），L5 由 AI 直接生成 HTML。
+
+**保留**：`l5-craft/scripts/` 的 `check_prose.py`/`check_duplicates.py`（默认流程仍跑）与
+`craft_check.py`（可选后备，legacy）；图尔敏六要素、四类查询判据、B1↔A4 占位回填交接均不变。
+
+**判据调整**：`tests/test_a_track_gates.py` 移除 L1-L4 建图脚本与 `craft_check` 的
+`logic.json` 调用（那些脚本已不存在），改为：A1-A3 脚本判据保留 + L1-L4 删除脚本的负向断言
+（路径不得存在）+ 新台账文档存在性断言 + L5 词表一致性（check_prose vs validate）保留 +
+废弃引用扫描把四个建图脚本与 `logic.json`/`common.py` 纳入 stale 清单。`evals.json` #1 的
+A4 路由描述同步改为台账五层文档。`tests/run_all.py` 全绿。
+
+## 5.4.1（2026-11-03）A4↔B1 图位占位回填交接打通
+
+用户问 A4 与 B1 如何衔接。核对代码后发现三个断点：A4 直出的 `__MMP__:<filename>` 图位占位，
+B1 的 `upload_imgs.py` 不识别（当本地路径报 WARN 跳过）、B1 文档与 `check_urls.py` 无占位回填说明、
+回填只能手工改 HTML（违反禁止手动操作规则）。修复：
+- **key 约定钉死**：`<filename>` = B1 清单 manifest 的 `filename` 字段 = `upload_imgs` 映射表键，
+  三者同名同键；`figure-manifest-spec.md` 新增「占位 key 约定」段，`sentence-craft.md` 同步。
+- **新增 `b1-images/scripts/fill_placeholders.py`**：按映射把 `src="__MMP__:<filename>"` 替换为 mmbiz
+  URL 并回写，key 缺失或映射非 URL 即 FAIL（不静默跳过），结束自检无残留；`--dry-run` 只核不写。
+- **`check_urls.py --html` 加残留判据**：HTML 里残留 `__MMP__` 即 FAIL，纳入 B1 出口闸。
+- **`upload_imgs.py` 加 `--manifest` / `--img-root`**：按清单 `filename` 批量上传正文图；扫 HTML 时
+  识别并跳过 `__MMP__:` 占位（不再误报本地路径 WARN）。
+- B1 流程加「4.5 回填 / 4.6 体检」两步，`write/SKILL.md` B1 段同步；新增 `tests/test_b1_fill.py`
+  固化该交接（正向回填、反向缺 key、残留判据、manifest_need 收集）。回归：run_all 11 通过（含
+  test_b1_fill）/ 1 跳过(playwright)/ 0 失败；evals 路由 0 失败。
+
+## 5.4.0（2026-11-03）归位孤立文件；图尔敏六要素补「限定」；奥威尔六原则与 IRAC 落位
+
+**目录归属**（用户质询）：`a4-logic/` 根不再有孤立文件，规范跟消费者走——
+- `scripts/check_prose.py`、`scripts/check_duplicates.py` → `l5-craft/scripts/`（唯一消费者是 L5 出口闸）；
+- `scripts/common.py` → `l1-framework/scripts/`（L1 是入口层，其余四层 import 指向它），`a4-logic/scripts/` 删除；
+- `revision-protocol.md`、`de-ai-playbook.md` → `l5-craft/`；
+- `research-prose-craft.md` 拆解：§三段落 → `l3-paragraph/paragraph-craft.md`；§四条文依据、§五强度分级、§六边界表述 → `l4-sentence/sentence-craft.md`；其余（说话位置/标题/韵律/体裁纪律/交稿）→ `l5-craft/final-craft.md`。原文档删除。
+
+**图尔敏六要素补全**：论证边新增 `qualifier`（限定：应当/通常/可能…）。判据：claim 含强断言措辞
+（一定/必然/显然）而 qualifier 为空 → WARN。schema：L1 与 L4 论证边均含该字段，`sentence_graph.py`
+的 `add-edge`/`check`/`graph` 同步。强度分级与边界表述见 `l4-sentence/sentence-craft.md`。
+
+**奥威尔六原则**（《政治与英语》：清楚、简洁、直白）落 L5：主动语态（「被/为…所」正则）、
+名词化还原、陈腐路标进 `word-tables.json` patterns.soft（WARN）；短词/日常词映射到现有口语/黑话词表，
+借喻禁令见 revision-protocol §四；完整落法表见 `l5-craft/final-craft.md` §二。
+
+**IRAC**（I 争议点→R 规则→A 分析→C 结论）落 A2：`case-driven` 推进法补充 IRAC 骨架说明，
+体裁标准框架表同步；L4 案例分析段的论证边按 IRAC 四段组织。
+
+## 5.3.0（2026-11-03）A4 重构为五层逻辑构建：图从"查病工具"变为"造文章的工具"
+
+**定位修正**（用户纠偏）：原 A4 是"成稿后跑四类查询的事后验证"；用户的设想是**以建立逻辑图的
+形式从零逐层构建文章**——L1 框架（A2 结构 + A3 素材铺章级 claim-evidence-warrant 骨架）→
+L2 章节间（开头/各章/结尾：过渡衔接与前后呼应）→ L3 章节内（段落承接与重复检测）→
+L4 段落内（句级 Toulmin：主题句/结尾句/论证热点）→ L5 句子内（句式/风格/选词三查清单）。
+走完五层文章成型，落实写作规范、去 AI 味、去口语化，**直接生成微信兼容 HTML（不是 Markdown）**。
+
+**目录重划**：`a4-logic/` 下建五个自足目录，各含具名说明文档与 scripts/——
+`l1-framework/`（framework-build.md + framework.py：init/warrants/check，孤证章节与空 warrant）、
+`l2-chapter/`（chapter-graph.md + chapter_graph.py：init/remodel/check/graph，过渡覆盖、呼应闭环、
+依赖不倒置、系列冲突）、`l3-paragraph/`（paragraph-graph.md + paragraph_graph.py：重复复引、
+裸编号、段落覆盖）、`l4-sentence/`（sentence-graph.md + sentence_graph.py：空 warrant、称赞腔、
+反问句、超长句）、`l5-craft/`（sentence-craft.md + craft_check.py + word-tables.json：
+list/scan/html 三查与硬项清零）。全阶段唯一数据文件 `logic.json` 分五段，各层脚本只读写自己的段；
+共享工具在 `a4-logic/scripts/common.py`。原 `logic_graph.py` 与 `logic-graph-spec.md` 拆解删除
+（判据分布：孤证→L1、空 warrant→L1+L4、术语漂移→L5、系列冲突→L2）。
+
+**A5 并入 A4、取消 A5**（用户批准）：`research-prose-craft.md`、`revision-protocol.md`、
+`de-ai-playbook.md` 迁至 `a4-logic/` 根，`check_prose.py`、`check_duplicates.py` 迁至
+`a4-logic/scripts/`；A 轨道收敛为 A1-A4 四阶段，`a5-draft/` 删除，全仓指针同步。
+
+**HTML 直出与 B2 降级**（用户批准）：L5 `html` 子命令把 markdown-ish 文稿经 blocks 委托
+B2 的 `build_blocks.py` 渲染，样式一律取自 theme-default 单一来源；B 轨 B2 降级为
+audit/verify 核对，B1 回填 `__MMP__` 图占位，B3-B5 不变。
+
+**演示实测沉淀的判据**（在《研发过程形成产品》1.3 万字成稿上验证）：重复复引 Jaccard、
+裸编号相撞、称赞腔词表（值得高度肯定/长足进步…）、口语词表（比如说/同一把尺子/对号入座…）、
+「同时…还同时」冗余模式；remodel 找不到边时明确报错不静默丢弃。
+`tests/test_a_track_gates.py` 重写为 L1-L5 双向验证（正向 + 反向逐条命中）。
+
 本技能变更记录。**对应关系只到发布线**：`main` 与 `rel-x.y.z` 分支上是「一个版本 = 一个提交 = 一个 tag」，本文件的每个版本段落对应发布线上那一个提交；本地安装目录所在的 `master` 线是工作树快照，按同一版本号提交、不参与发布。两条线没有共同祖先（`git rev-list --max-parents=0 --all` 给出 `8bc11a3` 与 `92a41af` 两个根），跨线 merge/rebase 没有定义，不要尝试。版本号只用在 tag 上，分支一律 `rel-` 前缀——此前 `refs/heads/v4.3.0` 与 `refs/tags/v4.3.0` 同名，本轮改名 `rel-4.3.0`。
+
+## 5.2.0（2026-11-03）A 轨道 5 步→五阶段：体裁收敛为研究性专业文章，三份散文规范拆解归位
+
+**体裁收敛**：本技能只服务一种体裁——面向财务、税务、法律、金融、经济领域的**研究性专业文章**，
+读者是同行。原 A 轨道按「技术博客散文」组织（记录型/对照型/说明型三种走法、代码即论据、
+answer/长帖/文章三种体），与专业文章的失败模式对不上：这类文章不缺可读性，缺的是**判断站不站得住**。
+
+**结构重划**：A 轨道按 B 轨同一原则（一阶段 = 一个唯一交付物 + 一个出口判据 + 一份规则所有权）
+改为五阶段：
+
+| 阶段 | 交付物 | 出口判据 | 脚本 |
+|---|---|---|---|
+| A1 立意 | `thesis.json` | 六要素齐备、结论带判断与边界 | `thesis_check.py` |
+| A2 结构 | `outline.json` | 每节回指分论点、交接关系齐、字数预算一致 | `outline_check.py` |
+| A3 素材 | `materials.json` | 每节材料达门槛、每条有来源、pending 清零 | `material_ledger.py` |
+| A4 逻辑 | `logic.json` | 四类查询全过 | `logic_graph.py` |
+| A5 成文 | `draft.md` | `check_prose` 清零 + 无重复段落 + 七遍改稿 | `check_prose.py`、`check_duplicates.py` |
+
+**新增四支判据脚本**：A4 覆盖「写完后自查」的四类查询——孤证章节（按本节自派材料判，不按所属
+分论点判，否则空壳章节会因为兄弟节有料而蒙混过关）、`warrant` 为空的断头论证、术语表外的写法、
+与同系列冲突却未标 `rebuttal`。A1/A2/A3 把「结论具体性」「章节回指与交接」「材料门槛与来源身份」
+变成可执行口径，四支都只判形状，判不了思想。
+
+**三份旧文档拆解归位并删除**：`writing-discipline.md`、`human-writing-nonfiction.md`、
+`de-ai-measures.md` 拆入 a1-a5 五个目录（删除前逐条核对 44 个关键事实点，其中 10 项确认为
+技术博客体裁专属、随体裁收敛一并废弃），`write/references/` 顶层不再有 A 轨文档。
+`check_prose.py`、`check_duplicates.py` 从 `write/scripts/` 移入
+`write/references/a5-draft/scripts/`，`write/scripts/` 目录随之清空。
+
+**A4 的第五层收口**：原方法论列到「句子成分与词汇」层。逐词建 JSON 的维护成本高于收益
+（成本一旦超过收益，这一步就会被跳过，等于什么都没有），故第五层只落到**术语一致性**——
+`terms` 表钉住全篇唯一写法，正文出现表外写法即 FAIL；词汇搭配交给 A5 的行文规范与词表。
+
+**B3 的词表指针同步**：三处词表同轮更新的维护规则从 `de-ai-measures.md` §7 迁到
+`a5-draft/de-ai-playbook.md` 第七节，`validate_wx_html.py`、`static-gate-rules.md`、
+`wx-html-redlines.md`、`acceptance-gates.md`、`references/gotchas.md` 五处指针已改指。
+
+**新增判据测试** `tests/test_a_track_gates.py`：A1-A4 正向 4 例 + 反向 16 例（空模板、空泛结论、
+翻案腔结论、陈述句问题、claim_ref 指空、对仗标题、空交接说明、字数失配、pending 台账、未核实材料、
+全篇无一手事实、材料数不足、空 warrant、术语漂移、系列冲突、孤证章节）+ 词表一致性与废弃引用核对。
+`run_all.py` 现为 8 通过 / 1 跳过（playwright）/ 0 失败。
+
+## 5.1.0（2026-11-03）B 轨道 7 阶段→5 阶段：验收三闸合一 + 哈希链取代 mtime
+
+**结构**：B1-B7 收敛为 **B1 配图 → B2 排版 → B3 验收 → B4 推送 → B5 回读**。原 B3 静态校验、
+B4 真机渲染、B5 人工签字合并为 `write/references/b3-acceptance/`（三道子闸判据互不覆盖但
+裁决的是同一份 HTML 的同一个问题——「能不能推」，且旧 B6 推送的 `--b5/--b3/--b4` 全是可选
+参数，漏传即绕过，三道闸变成三道建议）；B6→`b4-push/`、B7→`b5-readback/`。每阶段一个
+唯一交付物 + 一个出口判据，阶段间靠调用上游能力而非引用上游文档。
+
+**判据权威拆分**：共享规则源 `write/references/wx-html-rules.md` 按消费方拆分——§一形态+§二红线
+→ `b3-acceptance/wx-html-redlines.md`，§三模板+§四正文排版 → `b2-typeset/wx-html-templates.md`
+（拆分前做了 37 项事实点覆盖核对），原文件删除；`theme-default.md` 迁入 `b2-typeset/`（主消费者）。
+
+**哈希链取代 mtime**：新增 `b3-acceptance/scripts/acceptance_pack.py` 四子闸编排器，对 HTML
+原始字节算 sha256 写入 `acceptance.json` → B4 `push_gate.py` **`--acceptance` 必填**并核对指纹
+（验收后改稿即拒，exit 1）→ B5 `readback_check.py` 用哈希比对「改了没重推」，无哈希旧记录
+退回 mtime 兜底。验收三态：PASS / PENDING（渲染环境不满足，exit 2，不许推）/ FAIL。
+
+**去重与删除**：`typeset_plan.py` verify/audit 删去与 validate_wx_html 重叠的四项形态判据与两项
+image.url 判据（红线唯一权威归 B3）；`figure_manifest.py` 删 `scan` 子命令（HTML 反查依赖
+排版产物，放在 B1 形成环形依赖，移交 B3 判据）；`render_mermaid.py` 修 import 期 playwright
+崩溃（改函数内延迟 import），`wrap_preview.py`、`readback_check.py` 补 `-h`。全链 6 场景冒烟
+（含伪造包、验收后改稿、WAF 501 委托链）与 `tests/run_all.py` 均通过。
+
+## 5.0.0（2026-11-03）子技能 5→3：`draft/`、`materials/` 并入 `write/` 的 B1-B7 交付轨道
+
+破坏性结构变更，故主版本跳。原来「写文章」这件事被切成三个子技能（`write/` 写作排版、
+`materials/` 传图、`draft/` 推草稿），但一条交付链上每一步都要翻下一份文档，而三份文档里
+「正文图必须先换 mmbiz URL」「推送前必跑校验」这类口径各写了一遍、措辞不同，改一处忘两处
+的风险随文档数增长。本轮把它收敛成一条轨道：`write/SKILL.md` 里 **A 轨道（内容 A1-A5）+
+B 轨道（交付 B1-B7）**，每个流程一个目录，目录内自带说明文档与 `scripts/`。
+
+**落点与归属**：
+
+| 流程 | 目录 | 文档 |
+|---|---|---|
+| B1 配图上传 | `write/references/b1-images/` | `image-upload-interfaces.md`（materials 全部口径）、`figure-manifest-spec.md`、`image-flow-steps.md` |
+| B2 排版 | `write/references/b2-typeset/` | `typeset-workflow.md` |
+| B3 静态校验 | `write/references/b3-validate/` | `static-gate-rules.md` |
+| B4 真机渲染 | `write/references/b4-render/` | `render-gate-rules.md` |
+| B5 人工签字 | `write/references/b5-manual/` | `manual-signoff-checklist.md` |
+| B6 推送 | `write/references/b6-push/` | `draft-push-parameters.md`（draft 全部口径） |
+| B7 回读 | `write/references/b7-readback/` | `readback-verification.md` |
+
+文档名按用户要求不用 `README` 这类笼统名，名字直接说明这份文档管什么。`materials/SKILL.md`
+与 `draft/SKILL.md` 的口径逐条搬入后两目录移入回收站，仓库内不再有指向它们的引用。
+
+**根 `scripts/` 三支留在原位**（`wx_api.py`、`wx_draft_push.py`、`check_draft.py`）：普查显示
+`cgi-bin/draft/*` 的 14 处引用与 `tests/test_p0_gates.py` 的 4 处 URL 断言都指向**接口名**而不是
+目录，搬动收益为负；B1/B6/B7 的脚本以运行期逐级上溯的方式委托它们，不重复实现接口层。
+`write/scripts/` 只留 `check_prose.py`、`check_duplicates.py`（属内容轨道 A，不在 B1-B7 之内）。
+
+**迁移暴露的四处加载链断裂**（`git mv` 后必测，不是理论问题）：`upload_imgs.py` 写死
+`dirname()×3` 定位 wx_api；`qa_mobile.py` 同目录 `from render_mermaid import launch_browser`
+（render_mermaid 现属 B1）；`wx_draft_push.py` 的 `load_validator()` 指向旧 `write/scripts/`；
+`check_prose.py` docstring 里的路径。前三处统一改为「逐级上溯 + 找不到即明确报错退出」，
+**绝不静默降级为「视为通过」**——脚本被拷走或层级变化时静默通过，比报错危险得多。
+
+**新增七支流程封装脚本**：`figure_manifest.py`（清单骨架/预检/HTML 反查/mermaid 转条目）、
+`typeset_plan.py`（排版计划、漏段与凭空加段审计、产物形态自检）、`static_check.py`（批量静态闸，
+委托同目录 `validate()`）、`render_gate.py`（环境预检/渲染留痕/截图核对，**exit 2 = 环境不满足、
+exit 1 = 稿件不合格**，两者必须分开，否则会把环境问题读成内容问题去改好稿子）、
+`manual_signoff.py`（核对单/签字留痕/供 B6 校验，拒绝无截图与空结论的签字）、
+`push_gate.py`（闸序总控 + title ≤64 字节、digest ≤120 字符本地预检 + 捕获 media_id）、
+`readback_check.py`（回读门禁，委托 `check_draft.py`，补「media_id 不靠人工复制」「改了没重推
+即拦」「图数从 B1 清单取」三件事）。**七支都不重新实现判据**，只做批量、门禁、留痕。
+
+**判据测试同步**：`tests/test_qa_mobile.py`、`test_validate_rules.py`、`test_theme_blocks.py`
+改到新落点；`tests/test_evals_routes.py` 的 `TOPS` **移除 `"draft"`, `"materials"`** 并补 docstring
+说明——这是本轮唯一的判据放宽，因为 `draft/add`、`draft/batchget` 是微信接口名不是目录引用，
+留着会让 `references/api-docs.md`、`references/gotchas.md` 里十几处合法的接口名散文集体报红。
+替代方案（把接口名改成非反引号写法）会污染十几处文档，代价更大。
+
+**evals 收尾**：#1、#7 的 `expected_output` 叙述改到 B1-B7 口径（原来写的是「路由到 write/ +
+materials + draft 三个子技能」），新增 #11「材料不足应停下」（`human-writing-nonfiction.md` §1
+的 ≥5 件门槛与三选一）与 #12「B7 回读必跑」（推送成功 ≠ 内容进对）两条用例，共 12 条。
+`test_evals_routes.py` 会逐条核 `--长选项` 是否存在于所引脚本，本轮核到 23 个选项、453 处
+路径引用，0 项失败。
+
+**本机实测与限制**：`tests/run_all.py` 回到改造前基线（通过 7 · 跳过 1 · 失败 0），
+跳过的仍是 `test_qa_mobile.py`（本机无 playwright，按用户规则不装、严禁安装新的 Chrome/Chromium），
+因此 **B4 渲染闸在本机只能 SKIP，不等于通过**；`render_gate.py preflight` 正确返回 exit 2。
+`readback_check.py` 用真实凭据 + 不存在的 media_id 跑通到平台层，返回 `40007 invalid media_id`，
+证明委托链可用。Git Bash 的 argv 路径魔术（`/tmp`、`/d/` 被改写为 `D:/`，而 heredoc 源码内的
+同字符串不改写）会在「fixture 写一处、校验器读另一处」时造成假失败，测试统一使用工作目录内的
+绝对路径。
 
 ## 4.5.2（2026-10-17）安装件与仓库件不逐字节相同这件事写进文档 + 本地行尾归一
 
@@ -74,11 +484,11 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   `.gitattributes`（全树 `text=lf`）把这条写死在检出行为里。
 - **大小写双轨加了判据**：本地是 `write/ read/ search/`，发布树按 gh skill 的 `skills/<name>/` 结构
   收成小写，18 个路径两头不一致，Windows 文件系统不敏感、Linux/macOS 克隆后照文档跑就 file not found。
-  `tests/test_evals_routes.py` 新增第 3 件事：全树文本里的顶层目录引用（`write/…` 斜杠式与 `"read"`
+  `tests/test_evals_routes.py` 新增第 3 件事：全树文本里的顶层目录引用（`write/…` 斜杠式与 `"Read"`
   引号式，本轮核对 321 处）与磁盘目录名**逐字符**比对，大小写不符或路径不存在即报红；同一份判据在
   大写树与小写树都跑通，所以「发布物由本地树映射而来」不再靠人工约定。存在性只查「像路径」的引用
   （末段带 `.ext` 或原文以 `/` 结尾），因为 `draft/add`、`draft/batchget` 是微信接口名、
-  全由顶层目录名串起来的写法是散文并列；`os.path.join(HERE, os.pardir, "write", …)` 这种拼出来的
+  全由顶层目录名串起来的写法是散文并列；`os.path.join(HERE, os.pardir, "Write", …)` 这种拼出来的
   加载路径不在本判据覆盖内（不是一个连续字符串），那一类由加载方测试自己炸成执行异常。
 - **读取第四层不再写死 Windows 路径**：`read_wechat.py` 的 `devtools_ws_url()` 原先固定
   `~\AppData\Local\Microsoft\Edge\User Data\DevToolsActivePort`，号称可分发的技能在 macOS/Linux 上
@@ -740,3 +1150,54 @@ eferences/gotchas.md 新增第 18 条（禁用词替代表达清单，「首先�
 - **禁用词误报风险**：BANNED_WORDS 原来直接全文子串匹配，代码块注释里的"本文"会误报 ERROR → 改为只查非代码区正文（checker.texts），实测代码块含"本文"通过。
 - **check_draft.py 缺伪表格回读**：回读层不查 display:table → 新增「无 div 伪表格」检查项 + summary 字段 + 摘要行显示；0088 实跑 PASS（伪表格×0）。
 - 全技能扫描确认无过时表述残留（剩余命中均为禁令记录本身）。
+
+## 5.16.1（2026-11-05）单文件铁律机器化，杜绝第二份 wx-HTML
+
+用户第二次质疑「为什么会生成两个 wx-HTML，一个本地预览、一个上传公众号后台，只需要一个且本地也能预览」。复盘确认技能确有缺陷，且 4.0.3 的「单版本优先」只是文档约束、没有判据，执行时会重犯：
+
+- **根因**：A 轨出口闸强制正文图为 `__MMP__` 占位，却没规定占位态怎么在本地看到配图；本地打开必然看不见图，执行者只能另做一份带本地路径的预览版。
+- **预览工具落盘位置错误**：`wrap_preview.py` 默认在源目录生成 `<stem>_预览.html`，等于在稿件目录落下第二个 HTML，文档只说「它不参与校验」，没说它不是交付物。
+- **规范措辞留口子**：`wx-html-redlines.md` 的 base64 条款字面写「与推送版是两个文件」，与 4.0.3「不作双份维护」冲突。
+- **缺机器判据（最关键）**：B3 静态闸只查单文件内部合规，目录里多一份 HTML 也全绿，光改文档挡不住下一次。
+
+修复：
+
+- `write/SKILL.md` 新增「单文件铁律」，写进 A 轨出口闸、B1 出口闸、B3 静态闸；明确 mmbiz URL 回填后同一份 `article-wx.html` 浏览器直接打开即可看到全部配图。
+- `wx-html-redlines.md` 补单文件铁律、删「两个文件」措辞；`image-upload-interfaces.md` 补「回填后本地可见」一节。
+- `wrap_preview.py` 改为默认写系统临时目录、去掉需人工点击的复制按钮，新增 `--figures`：占位态把图临时换成 data URI（只作用于预览副本，绝不写回原文件）。
+- 新增 `check_single_artifact.py`（产物唯一性判据），接入 `acceptance_pack.py` 的 gates —— B4 推送以验收包为唯一前置输入，多一份 wx-HTML 直接 FAIL。纯自动，无人工步骤。
+- 复现验证：修复前稿件目录含 `预览.html`，判据输出 `[FAIL] … 预览.html 文件名疑似第二个预览/推送版本` 并退出 1；清理多余文件后 PASS。
+
+## 5.16.2（2026-11-05）图片可见性：把「编辑器里看得见」变成机器判据
+
+- **现象**：静态闸、URL 体检、`qa_mobile.py` 渲染闸全绿，用户在 WorkBuddy 编辑器和 Edge 里
+  打开 `article-wx.html` 却只看到破图图标。用户提供的可正常显示样例中，
+  `article4-wx.push.html` 用的是 9 个内联 SVG、无 `<img>`、完全自包含。
+- **根因**：
+  1. 规范断言错误——红线与 B1 文档写「mmbiz URL 公网可达，浏览器直接打开即可看到全部配图」，
+     并禁止本地预览走内联兜底，把可见性全押在外网上；
+  2. 判据环境与查看环境不一致——`qa_mobile.py` 用 `file://` 打开，微信图床能加载，
+     而编辑器/静态服务走 `http://127.0.0.1`，外链可能被内容安全策略、防盗链或断网拦掉；
+  3. 没有「掐断外链」的离线轮，外链一旦被拦，所有判据照样全绿；`--no-image-check` 还可跳过坏图检测。
+- **修复**：
+  - `upload_imgs.py` 输出 URL 统一升 https；`validate_wx_html.py` 新增 `http://mmbiz.qpic.cn` 判 ERROR。
+  - 新增 `check_image_visibility.py`：起本地静态服务模拟编辑器环境，跑在线轮与「掐断全部 mmbiz 请求」
+    离线轮，两轮都要求每张图可见（允许内嵌 src 或背景兜底）。接入 `acceptance_pack.py` 的 gates，
+    不受 `--no-image-check` 影响；B4 推送以验收包为唯一前置输入，缺兜底直接 FAIL/PENDING。
+  - 红线新增「离线可见铁律」：`src` 保持 https mmbiz（微信端），同一份文件内带属性级内嵌兜底
+    （本地/离线端）；明确这不是第二份 HTML，删掉「本地预览不走内联」的错误禁令。
+  - 同步 `write/SKILL.md` B1/B3 门禁、`image-upload-interfaces.md`。
+- **本次稿件复现验证**：修复前用户截图为破图；加兜底后在 `http://127.0.0.1` 环境实测
+  在线 14/14 可见、掐断全部外链 14/14 可见、禁用脚本时背景兜底仍在，390px 无横向溢出。
+
+## 5.16.3（2026-11-05）图片可见性在线轮：消除 CDN 慢导致的假 FAIL
+
+- **现象**：`check_image_visibility.py` 在线轮偶发报「坏图 [7..14]」，同一份 HTML 立即复跑
+  就是在线 14/14、离线 14/14 PASS；离线轮始终全绿，报错的图与「是否重传过」无关，
+  集中在页面后半段——判断为加载时序问题，不是图片失效。
+- **根因**：`probe()` 在线轮只固定等 2.5 秒就取 `naturalWidth`。微信图床偶发慢时，
+  后半段图片仍在 pending，`naturalWidth=0` 被当成坏图，属于假 FAIL。
+- **修复**：在线轮改用 `wait_for_function` 等所有 `<img>` 结束加载（上限 `--timeout` 秒），
+  再统一探测；离线轮因请求被直接 abort、图片立即 complete，短等 800ms 即可。
+  加载失败的图 `complete` 也为 true，仍会被 `naturalWidth=0` 判出，不会放过真坏图。
+- **验证**：改后在线 14/14、离线 14/14 PASS；`tests/run_all.py` 11/11 通过。
