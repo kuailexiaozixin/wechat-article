@@ -2,7 +2,7 @@
 """B2 排版 · 成稿到 blocks.json 的装配计划与一致性核对。
 
 本步不生成 HTML（生成由同目录的 `build_blocks.py` 完成，样式唯一来源
-`write/references/b2-typeset/theme-default.md`）。它管 build_blocks 不管的事：
+`Write/references/b2-typeset/theme-default.md`）。它管 build_blocks 不管的事：
 
     1. plan   —— 从纯文本稿切出段落，生成 blocks.json 骨架，人再逐块补类型
     2. embed  —— 把 image 块的本地路径换成 mmbiz URL（按 mmbiz_map 的 basename 命中）
@@ -105,7 +105,7 @@ def cmd_plan(args):
     print("   • 行内 `code` 是否需要拆成 inline_code 块")
     print("   • 引用（>）与列表无专用组件，已去标记成段，请确认是否需人工调整")
     print("   • 为凑组件补写的内容请删掉（theme-default「使用约定」第三条）")
-    print("  下一步：python write/references/b2-typeset/scripts/build_blocks.py %s -o article.html" % dst)
+    print("  下一步：python Write/references/b2-typeset/scripts/build_blocks.py %s -o article.html" % dst)
     return 0
 
 

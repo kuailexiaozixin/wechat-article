@@ -24,7 +24,7 @@ summary: B1 配图上传的接口口径、图片规格限制、批量上传与�
 
 - **正文图**：仅支持 jpg / png，且必须 **< 1MB**。格式不符报 `40005`，尺寸超限报 `40009`。
   大图是正文图的头号失败点——先压缩再上传，不要指望接口宽容。压缩用 `compress_img.py`：
-  `python write/references/b1-images/scripts/compress_img.py <img>`（默认压到 950KB、另存
+  `python Write/references/b1-images/scripts/compress_img.py <img>`（默认压到 950KB、另存
   `<stem>_min.png`；`--in-place` 就地覆盖原图）。
 - **封面**：**10MB**，支持 bmp/png/jpg/jpeg/gif。比例 **2.35:1**（900×383）在大卡上展示最佳；
   建议宽构图（如 2048×880），裁剪损失小。
@@ -47,25 +47,23 @@ mmbiz URL**。禁止先写本地路径再事后替换：本地路径一旦误推
 按混合内容拦 http 图片）。但**公网可达不等于本地可见**：WorkBuddy 编辑器、Edge 打开的
 `127.0.0.1` 静态服务可能因内容安全策略、防盗链或断网拦掉外链，此时只有破图图标。
 
-因此排版时每张 `<img>` 除 `src` 外还要带两层属性级兜底（`data-fallback` + `onerror`、
-`background-image:url(data:image/jpeg;base64,...)` + `aspect-ratio`）。这不是第二份 HTML，
-微信端只看 `src`、会剥离事件属性；本地与离线预览则由兜底保证可见。
-判据是 `check_image_visibility.py`：在 `http://127.0.0.1` 静态服务里跑「在线 / 掐断全部外链」
-两轮，两轮都要每张图可见，已接入 `acceptance_pack.py`，不受 `--no-image-check` 影响。
+因此排版时每张 `<img>` 只写 `src`（mmbiz URL）与内联样式即可，不加任何 base64 兜底。
+注意：本地用 `file://` 打开时，微信图床防盗链会返回占位图（HTTP 200），`onerror` 兜底不会触发，
+本地看不到真图属预期，真图以公众号后台/编辑器预览为准。
 禁止再生成「本地预览版」或「待推送版」等第二份 HTML 交付物。
 
 若尚未回填（仍是 `__MMP__` 占位）又需要本地核图：
-`python write/references/b3-acceptance/scripts/wrap_preview.py article-wx.html --figures <配图目录>`
+`python Write/references/b3-acceptance/scripts/wrap_preview.py article-wx.html --figures <配图目录>`
 把占位临时换成 data URI，**只作用于系统临时目录里的预览副本，绝不写回原文件**，也不算交付物。
 B3 静态闸的 `check_single_artifact.py` 会检查稿件目录里是否多出第二份 HTML。
 
 ## 批量上传
 
-多图场景用 `write/references/b1-images/scripts/upload_imgs.py`，不要逐张手敲：
+多图场景用 `Write/references/b1-images/scripts/upload_imgs.py`，不要逐张手敲：
 
 ```bash
-python write/references/b1-images/scripts/upload_imgs.py --html "<article-wx.html>" [--map mmbiz_map.json]
-python write/references/b1-images/scripts/upload_imgs.py --img a.png b.png
+python Write/references/b1-images/scripts/upload_imgs.py --html "<article-wx.html>" [--map mmbiz_map.json]
+python Write/references/b1-images/scripts/upload_imgs.py --img a.png b.png
 ```
 
 - 自动扫描 HTML 内的本地图片并逐个上传、打印 mmbiz URL；也可用 `--img` 直接给图片列表。
@@ -77,10 +75,10 @@ python write/references/b1-images/scripts/upload_imgs.py --img a.png b.png
 
 ## 封面生成器
 
-系列文章每篇换封面用 `write/references/b1-images/scripts/gen_cover.py`：
+系列文章每篇换封面用 `Write/references/b1-images/scripts/gen_cover.py`：
 
 ```bash
-python write/references/b1-images/scripts/gen_cover.py --out cover-<篇号>.png \
+python Write/references/b1-images/scripts/gen_cover.py --out cover-<篇号>.png \
   [--pattern layers|guard|grid|circuit] [--seed N] [--title "主标题"] [--subtitle "副标题"] [--font ttf]
 ```
 
@@ -96,7 +94,7 @@ python write/references/b1-images/scripts/gen_cover.py --out cover-<篇号>.png 
 `uploadimg` 返回的 `mmbiz.qpic.cn` URL，官方页只给 `url` 字段、**未写有效期**，本技能按长期可用
 处理并定期抽查。若发现草稿或已发文章图片不显示：重新 `uploadimg` → 替换 HTML 中的旧 URL →
 `draft-update` 重推。每次换会话批量处理前，用 `check_urls.py` 跑一轮体检：
-`python write/references/b1-images/scripts/check_urls.py --map mmbiz_map.json [--html article-wx.html]`
+`python Write/references/b1-images/scripts/check_urls.py --map mmbiz_map.json [--html article-wx.html]`
 （逐条 HTTP GET 报状态码；`--html` 额外核正文引用的 mmbiz URL 是否都在 map 里，防漏传）。
 
 ## 排障（本阶段常见错误的结论已内联，溯源见根 `references/gotchas.md`）

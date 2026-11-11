@@ -1,7 +1,7 @@
 # wx 内联版 HTML 红线（B3 验收阶段的判据权威）
 
 违反本文任一条，推送后要么内容丢失，要么显示异常。本文是「不能有什么」的唯一权威：
-`write/references/b3-acceptance/scripts/validate_wx_html.py`（静态机检）与 `write/references/b3-acceptance/scripts/qa_mobile.py`（真机渲染机检）实现的就是
+`Write/references/b3-acceptance/scripts/validate_wx_html.py`（静态机检）与 `Write/references/b3-acceptance/scripts/qa_mobile.py`（真机渲染机检）实现的就是
 这张表；「怎么写」（模板与排版）在 `../b2-typeset/wx-html-templates.md`，两边互不重复。
 B2 不再自查产物形态——那是本阶段的职责。
 
@@ -11,13 +11,11 @@ B2 不再自查产物形态——那是本阶段的职责。
 ## 一、产物形态（硬性）
 
 - **单文件铁律**：全链路只维护一份 `article-wx.html`。本地预览与公众号后台共用同一份文件。
-- **离线可见铁律（5.16.2）**：`<img src>` 必须是 `https://mmbiz.qpic.cn/...`（微信端只认它），
-  但**不能把本地可见性全押在外链上**——编辑器、`127.0.0.1` 静态服务、内容安全策略、防盗链、
-  断网都可能让外链变成破图。`qa_mobile.py` 用 `file://` 打开时外链往往能加载，容易假绿。
-  因此同一份文件里每张图还须带一层本地内嵌兜底：`data-fallback` + `onerror`（脚本可用时换 src），
-  以及 `background-image:url(data:image/jpeg;base64,...)` + `aspect-ratio`（脚本被禁时仍能显示）。
-  这是属性级兜底，不是第二份 HTML；微信端剥离事件属性、只看 `src`，不受影响。
-  由 `check_image_visibility.py` 在 `http://127.0.0.1` 环境跑「在线 / 掐断外链」两轮兜底。
+- **图片链接口径**：`<img src>` 必须是 `https://mmbiz.qpic.cn/...`（微信端只认它）。
+  本地用 `file://` 直接打开时，微信图床防盗链会返回占位图（HTTP 200，内容是
+  「未经允许不可引用」），`onerror` 兜底不会触发——本地看不到真图是预期行为，
+  不算稿件问题，真图以公众号后台/编辑器预览为准；需本地核图时用 `wrap_preview.py`
+  生成临时预览（写系统临时目录，不算产物）。
   **禁止另生成「本地预览版」「base64 存档版」「待推送版」等第二份 HTML 交付物**，也禁止为「本地看效果」另存一份。
   `wrap_preview.py` 生成的临时外壳只写系统临时目录，属预览工具、不算产物；
   B3 静态闸的「产物唯一性」判据（`check_single_artifact.py`）会在本机目录里拦下多出来的 HTML。
@@ -33,7 +31,6 @@ B2 不再自查产物形态——那是本阶段的职责。
   误推，图片全部不显示，修复需重推整篇。
 - **base64 内联版仅按需归档，且不作为 wx-HTML 交付物**：只有用户明确要求「离线存档、图片内联、可断网打开」时才另生成，
   必须与 `article-wx.html` 分开命名、明确标注为离线存档，不得被当作推送版，也不得当作「本地预览版」。
-  **上面说的属性级兜底不受本条限制**：它写在唯一那份 `article-wx.html` 里，不是另存文件。
   微信端不识别以 base64 作 `src` 的图片，归档版绝不能直接推送。存量 base64 存档需重推时，按「解码 base64 → `uploadimg` → 替换 src →
   校验 → 重推」一次性转换（上传操作见 `../b1-images/image-upload-interfaces.md`）。
 
@@ -50,7 +47,7 @@ B2 不再自查产物形态——那是本阶段的职责。
 | 本地路径或非 mmbiz 域名的 `<img src>` | ERROR | 图片不显示 |
 | `<div>` | WARN | API 推送路径实测不清洗、样式保留（theme-default 组件 2 在用）；编辑器粘贴路径会被改写，官方不建议——能用 `<section>` 就用 `<section>` |
 | `display:flex` | WARN | 部分机型换行/对齐异常 |
-| 正文出现禁用词（「本文」「读者」「首先」等） | ERROR | 写作纪律项，词表 `BANNED_WORDS` 在 `write/references/b3-acceptance/scripts/validate_wx_html.py` 内是**全仓唯一一份**，此处只引不改 |
+| 正文出现禁用词（「本文」「读者」「首先」等） | ERROR | 写作纪律项，词表 `BANNED_WORDS` 在 `Write/references/b3-acceptance/scripts/validate_wx_html.py` 内是**全仓唯一一份**，此处只引不改 |
 | 中文后紧跟半角 `, ; ! ?`、英文直引号 | WARN | 排版观感，代码块内不计 |
 
 其余要点：

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """wx 内联版 HTML 合规校验器（API 推送路径版）。
 
-把 write/SKILL.md 的「微信兼容硬规范」从模型自觉变成确定性兜底。
+把 Write/SKILL.md 的「微信兼容硬规范」从模型自觉变成确定性兜底。
 BANNED_WORDS / AI_FLAVOR_PHRASES / PROCESS_TRACE_RULES 是本仓库唯一一份禁词与 AI 味词表：
 A 轨写作纪律、B3 静态红线、根推送闸共用这一份，改动只在此处发生，改完跑 `python tests/run_all.py`。
 推送草稿前必跑：检查禁用标签/属性/样式、代码块结构、图片域名、

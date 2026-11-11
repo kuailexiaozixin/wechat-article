@@ -18,7 +18,7 @@
 ## 四个子闸与唯一编排器
 
 ```bash
-python write/references/b3-acceptance/scripts/acceptance_pack.py \
+python Write/references/b3-acceptance/scripts/acceptance_pack.py \
     --html article.html --manifest manifest.json --signoff article_B5.json \
     [-o article_acceptance.json]
 ```

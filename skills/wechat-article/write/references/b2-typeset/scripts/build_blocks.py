@@ -11,7 +11,7 @@
 输入格式: {"blocks":[{...},...]} 或直接一个数组。每个块是
     {"type": "<组件名>, ...参数}
 组件名与参数见 BLOCKS；样式一律取自 theme-default，脚本不接收自定义 style，
-生成物与 write/references/b2-typeset/theme-default.md 逐字一致（tests/test_theme_blocks.py 比对）。
+生成物与 Write/references/b2-typeset/theme-default.md 逐字一致（tests/test_theme_blocks.py 比对）。
 
 代码块的行内缩进写实空格：每 4 个前导空格转 4 个 &nbsp;，`<` `>` `&` 自动转义，
 空行输出 <p>&nbsp;</p>。正文段子里用反引号包裹的行内代码（`xxx`）转行内代码样式，
@@ -26,9 +26,9 @@
 不是文章骨架：写文章时按内容取块，没有代码就不放 code 块，不得为凑组件补写内容。
 
 生成后照旧走闸口（顺序固定）:
-    成文即在 A 轨道内整理为符合 wx-HTML 规范的 article-wx.html（见 write/SKILL.md「A 轨道」出口闸）
-    python write/references/b3-acceptance/scripts/validate_wx_html.py out.html    # 排版红线，ERROR=0
-    python write/references/b3-acceptance/scripts/qa_mobile.py out.html           # 390px 渲染验收
+    成文即在 A 轨道内整理为符合 wx-HTML 规范的 article-wx.html（见 Write/SKILL.md「A 轨道」出口闸）
+    python Write/references/b3-acceptance/scripts/validate_wx_html.py out.html    # 排版红线，ERROR=0
+    python Write/references/b3-acceptance/scripts/qa_mobile.py out.html           # 390px 渲染验收
 """
 import argparse
 import json

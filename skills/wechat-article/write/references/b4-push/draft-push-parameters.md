@@ -13,13 +13,13 @@ summary: B4 推送草稿箱：验收包核验与指纹链、六接口口径、�
 ## 前置：验收包三查（`push_gate.py`，缺一不放行）
 
 ```bash
-python write/references/b4-push/scripts/push_gate.py push \
+python Write/references/b4-push/scripts/push_gate.py push \
     --html article.html --acceptance article_acceptance.json \
     --title "<短句>" --digest "<摘要>" [--cover cover.png] [-o push.json] [--dry]
-python write/references/b4-push/scripts/push_gate.py update \
+python Write/references/b4-push/scripts/push_gate.py update \
     --html article.html --acceptance article_acceptance.json --media <id> \
     --title "<短句>" --digest "<摘要>" [--cover cover.png] [-o push.json]
-python write/references/b4-push/scripts/push_gate.py deliver \
+python Write/references/b4-push/scripts/push_gate.py deliver \
     --html article.html --acceptance article_acceptance.json \
     --title "<短句>" --digest "<摘要>" [--media <id>] [--manifest manifest.json]
 ```

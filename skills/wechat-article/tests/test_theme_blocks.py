@@ -2,7 +2,7 @@
 """theme-default 组件样张与 build_blocks 模板的逐字一致性测试。
 
 两件事：
-1. 全组件通过样张：把 write/references/b2-typeset/theme-default.md 里每个 ```html 代码块
+1. 全组件通过样张：把 Write/references/b2-typeset/theme-default.md 里每个 ```html 代码块
    逐字拼起来送 validate_wx_html.validate()，ERROR 必须为零——参考文档自身
    写进不合规样式时，这里立刻报红。
 2. 模板一致：build_blocks.DEMO 每个组件渲染结果必须与 md 对应代码块逐字节相等。

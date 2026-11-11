@@ -35,8 +35,8 @@
 <section>
 <h2>第三道：代码块与引用</h2>
 <p>代码块是排版里最容易失效的部分。微信编辑器会剥离 <span style="font-family:monospace;">pre</span> 标签并折叠空格，因此代码块必须逐行写成段落，行首空格用不换行空格补齐。</p>
-<pre><code>python read/scripts/read_wechat.py "https://mp.weixin.qq.com/s/xxxx" -o out.md
-python write/scripts/validate_wx_html.py draft.html
+<pre><code>python Read/scripts/read_wechat.py "https://mp.weixin.qq.com/s/xxxx" -o out.md
+python Write/scripts/validate_wx_html.py draft.html
 python scripts/check_draft.py "$MEDIA_ID" --source draft.html</code></pre>
 <blockquote>引用的官方文档要给出接口名与参数字段，不要只写「见官方文档」——读者无法核对的引用等于没有引用。</blockquote>
 <p>上面的命令块在推送后应当逐行显示。若某行被折叠成一行，说明结构被剥离，需要回到校验环节复查。</p>

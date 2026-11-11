@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""search/scripts/search_wechat.py 解析与还原测试（全程离线，不联网）。
+"""Search/scripts/search_wechat.py 解析与还原测试（全程离线，不联网）。
 
 fixture 来源：tests/fixtures/sogou_type2_sample.html（真实结果页结构切片，10 条）、
 sogou_two_items_sample.html（两条，字段值可逐字断言）、sogou_empty_page.html（0 条）、
@@ -508,7 +508,7 @@ def run():
     if len(got15e) != 2 or not all(it["link"].startswith("https://weixin.sogou.com/") for it in got15e):
         fails.append("还原被丢弃后条目数或搜狗链接兜底不对：%s" % got15e[:1])
     if "evil" in S15e.render(got15e, "md", "税务"):
-        fails.append("md 交付里出现了外域链接——调用方会照着它交给 read/")
+        fails.append("md 交付里出现了外域链接——调用方会照着它交给 Read/")
     if "还原失败" not in S15e.render(got15e, "text", "税务"):
         fails.append("text 交付没打印还原失败原因，用户只看到一条没还原的跳转链接")
     ctrl = "<script>var url='';url += 'https://\x1b[31mLEAK\x1b[0m.example/p';</script>"

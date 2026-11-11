@@ -23,7 +23,7 @@ import time
 def _find_wx_api():
     """自本文件逐级向上找根 scripts/wx_api.py。
 
-    脚本落在 write/references/b1-images/scripts/，深度不固定（安装态与开发态层级一致，
+    脚本落在 Write/references/b1-images/scripts/，深度不固定（安装态与开发态层级一致，
     但复制到别处时会变），写死 dirname() 层数会在 import 期直接 FileNotFoundError。
     """
     d = os.path.dirname(os.path.abspath(__file__))

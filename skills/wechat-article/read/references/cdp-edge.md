@@ -16,7 +16,7 @@
 
 **取不到时不要改脚本**：设环境变量 `WX_EDGE_DEVTOOLS_PORT_FILE` 指向该文件，脚本优先采用它、
 不再看上面任何候选。跨平台与自定义 profile 只靠这个出口，另两条路径只是先替你试一下。
-实现见 `read/scripts/read_wechat.py` 的 `devtools_port_candidates()` 与 `devtools_port_file()`；
+实现见 `Read/scripts/read_wechat.py` 的 `devtools_port_candidates()` 与 `devtools_port_file()`；
 两者都取不到时报错会把已试过的候选路径逐个列出来，不会只说「Edge 没开」。
 
 第一行是端口号，第二行是 WebSocket 路径（`/devtools/browser/<uuid>`）。**两行都要读**，只用端口连不上。

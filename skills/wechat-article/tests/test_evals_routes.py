@@ -5,8 +5,8 @@
   1. 用例里写到的每个仓库路径必须真实存在（文档改名/删文件而 evals 没跟着改 → 报红）。
   2. 用例里写到的每个 `--长选项` 必须出现在同一用例引用的某个脚本里
      （argparse 声明或 docstring 用法行）——评测量到的命令不能是想象出来的 flag。
-  3. 全树文本里的顶层目录引用（`write/`…`tests/`、以及 `"Read"` 这种引号形式）必须与
-     **磁盘上的真实名字逐字符一致**且路径存在。本地是 `write/ read/ search/` 大写布局，
+  3. 全树文本里的顶层目录引用（`Write/`…`tests/`、以及 `"Read"` 这种引号形式）必须与
+     **磁盘上的真实名字逐字符一致**且路径存在。本地是 `Write/ Read/ Search/` 大写布局，
      发布树按 gh skill 的 `skills/<name>/` 结构收成小写；Windows 文件系统大小写不敏感，
      「文件能打开」证明不了这一点，Linux/macOS 克隆后才暴露成 file not found。
      发布仓库根那一层的 `README.md` 一起扫（它写的是 `skills/<技能名>/` 打头的完整式路径，
@@ -97,7 +97,7 @@ def check_layout():
     文中写成了全小写，Windows 打开得了、Linux 克隆过来就是 file not found）；
     存在性核对只对**像路径**的引用做——末段带点（文件）或原文以 `/` 结尾（目录）。
     两段式并列（第二段本身也是顶层目录）同样不查存在性。
-    5.0.0 起 `draft/`、`materials/` 两个顶层目录已并入 `write/references/`，相应从 TOPS
+    5.0.0 起 `draft/`、`materials/` 两个顶层目录已并入 `Write/references/`，相应从 TOPS
     移除：`draft/add`、`draft/batchget` 是微信接口名而不是目录引用，留着会让全仓十几处
     接口名文档集体报红。接口名与目录名同形时，判据只认磁盘上还在的那些名字。
     覆盖面边界：测试脚本用 `os.path.join(HERE, os.pardir, "Write", ...)` 拼出来的

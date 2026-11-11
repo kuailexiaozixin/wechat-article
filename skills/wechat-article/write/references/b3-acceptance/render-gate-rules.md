@@ -10,7 +10,7 @@ summary: B3 验收阶段渲染子闸的判据、环境前置检查、截图核�
 ## 判据（`qa_mobile.py`）
 
 ```bash
-python write/references/b3-acceptance/scripts/qa_mobile.py <article.html> \
+python Write/references/b3-acceptance/scripts/qa_mobile.py <article.html> \
     [--width 390] [--screenshot out.png] [--no-image-check] [--json]
 ```
 
@@ -28,13 +28,13 @@ python write/references/b3-acceptance/scripts/qa_mobile.py <article.html> \
 
 ## 门禁 `render_gate.py`
 
-`write/references/b3-acceptance/scripts/render_gate.py` **不重新实现渲染判据**，只调 `qa_mobile.py`，
+`Write/references/b3-acceptance/scripts/render_gate.py` **不重新实现渲染判据**，只调 `qa_mobile.py`，
 管它不管的三件事：
 
 ```bash
-python write/references/b3-acceptance/scripts/render_gate.py preflight <article.html> [--width 390]
-python write/references/b3-acceptance/scripts/render_gate.py run <article.html> [--json out.json]
-python write/references/b3-acceptance/scripts/render_gate.py review --json <B4 结果> [--width 390]
+python Write/references/b3-acceptance/scripts/render_gate.py preflight <article.html> [--width 390]
+python Write/references/b3-acceptance/scripts/render_gate.py run <article.html> [--json out.json]
+python Write/references/b3-acceptance/scripts/render_gate.py review --json <B4 结果> [--width 390]
 ```
 
 - `preflight`：跑之前查环境（浏览器是否存在、playwright 是否可用、图是否已换成 mmbiz）。

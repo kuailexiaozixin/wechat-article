@@ -136,7 +136,7 @@ def launch_browser(playwright):
         f"   最后错误: {last_err}\n"
         "   解决: 本技能不装任何新的 Chrome/Chromium，也不代跑 playwright install——"
         "三档 fallback 只用现有浏览器，请确认本机已装并启动过 Microsoft Edge 或 Chrome。\n"
-        "   环境预检：python write/references/b3-acceptance/scripts/render_gate.py preflight <article.html>")
+        "   环境预检：python Write/references/b3-acceptance/scripts/render_gate.py preflight <article.html>")
 
 
 def crop_whitespace(png_path, pad=16):

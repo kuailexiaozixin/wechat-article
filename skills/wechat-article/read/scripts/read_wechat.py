@@ -8,7 +8,7 @@
 
 四层渐进（逐层降级，以「非空正文」为唯一成功判据）:
     1 Mobile UA 直连        2 Desktop UA + Cookie Session
-    3 完整浏览器 Headers    4 CDP 本机 Edge（验证墙场景，连接细节见 read/references/cdp-edge.md）
+    3 完整浏览器 Headers    4 CDP 本机 Edge（验证墙场景，连接细节见 Read/references/cdp-edge.md）
 
 质量门（判成功的硬条件，缺任一项即判该层失败继续降级）:
     - 正文节点存在（#js_content / .rich_media_content）
@@ -105,7 +105,7 @@ def layer3(url):
     })
 
 
-# ---------------- 第 4 层：CDP（按 read/references/cdp-edge.md 固化的连接序列） ----------------
+# ---------------- 第 4 层：CDP（按 Read/references/cdp-edge.md 固化的连接序列） ----------------
 
 DEVTOOLS_ENV = "WX_EDGE_DEVTOOLS_PORT_FILE"
 
@@ -457,8 +457,8 @@ def main():
             print("LAYER %s · 正文 %d 字 · 解析 %s" % (r["layer"], r["chars"], r["parse_mode"]),
                   file=sys.stderr)
         else:
-            print("FAIL 四层均未取到合格正文——按 read/references/cdp-edge.md 确认 Edge 调试端口，"
-                  "或改用 search/ 换来源；勿对本 URL 继续重试。", file=sys.stderr)
+            print("FAIL 四层均未取到合格正文——按 Read/references/cdp-edge.md 确认 Edge 调试端口，"
+                  "或改用 Search/ 换来源；勿对本 URL 继续重试。", file=sys.stderr)
     sys.exit(0 if r["ok"] else 1)
 
 

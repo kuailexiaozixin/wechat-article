@@ -2,7 +2,7 @@
 """B1 图注闸 + 禁词表单点维护的可证伪核对。
 
 A 轨的 references 三个目录（a1-thesis / a2-materials / a3-logic）已移除：写作纪律的机器可验证部分
-单点收归 `write/references/b3-acceptance/scripts/validate_wx_html.py` 的 BANNED_WORDS /
+单点收归 `Write/references/b3-acceptance/scripts/validate_wx_html.py` 的 BANNED_WORDS /
 AI_FLAVOR_PHRASES / PROCESS_TRACE_RULES（全仓唯一一份）。本文件因此只核两件事：
 
   - validate_wx_html 仍持有制作痕迹与 AI 味词表，且 check_captions 侧的同名词仍在

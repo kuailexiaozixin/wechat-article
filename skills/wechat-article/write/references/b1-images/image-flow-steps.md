@@ -14,13 +14,13 @@ B1 的产出物是两样：**一份图片清单** + **清单里每张图对应�
 | 步 | 命令 | 出口 |
 |---|---|---|
 | 0 分层配图需求 | AI 读 A3 逻辑台账（`article-ledger.md`）各层（L1 架构/L2L3 章节/L4 法条/数据）→ 手填 `figure-requirements.json`（每条：`layer`/`figure_type`/`trigger`/`tool`/`filename`） | 每张图都带「哪层、为什么配、用什么形式」 |
-| 0.5 校验需求 + 出清单 | `python write/references/b1-images/scripts/figure_plan.py check figure-requirements.json` 后 `figure_plan.py from-ledger figure-requirements.json -o manifest.json` | 层级↔图形式不错配、触发判据写清、manifest 条目生成（TODO 字段人工补齐） |
-| 1 出清单 | `python write/references/b1-images/scripts/figure_manifest.py template -o manifest.json` 后逐条填实（若第 0.5 步已 from-ledger，本步只补 TODO） | 每张图有 `purpose`（省掉了哪段文字）与 `source_basis`（依据哪段/哪条来源） |
+| 0.5 校验需求 + 出清单 | `python Write/references/b1-images/scripts/figure_plan.py check figure-requirements.json` 后 `figure_plan.py from-ledger figure-requirements.json -o manifest.json` | 层级↔图形式不错配、触发判据写清、manifest 条目生成（TODO 字段人工补齐） |
+| 1 出清单 | `python Write/references/b1-images/scripts/figure_manifest.py template -o manifest.json` 后逐条填实（若第 0.5 步已 from-ledger，本步只补 TODO） | 每张图有 `purpose`（省掉了哪段文字）与 `source_basis`（依据哪段/哪条来源） |
 | 2 出图 | 按清单 `tool` 字段选渲染器：`mermaid` 走 `render_mermaid.py`；表格/结构化排版走 `gen_table.py`；封面走 `gen_cover.py`；`imagegen` 用外部工具。出图后自动调 `crop_whitespace` 裁切四周白色留白并加对称 padding，使内容居中 | 图片落盘，文件名与清单 `filename` 一致；内容居中无偏移 |
-| 3 清单预检 | `python write/references/b1-images/scripts/figure_manifest.py check manifest.json` | FAIL 清零（>1MB、非 jpg/png、缺字段、filename 重复、图上文字无出处） |
-| 4 批量上传 | `python write/references/b1-images/scripts/upload_imgs.py --manifest manifest.json --map mmbiz_map.json`（或 `--html` / `--img`） | `mmbiz_map.json`（键为图片 basename，与 `filename` 同名）；封面另用 `python scripts/wx_api.py cover .\cover.png` 取 `media_id` |
-| 4.5 回填占位 | `python write/references/b1-images/scripts/fill_placeholders.py --html <article-wx.html> --map mmbiz_map.json` | 把 A3 直出 HTML 里的 `__MMP__:<filename>` 替换为 mmbiz URL；残留即 FAIL |
-| 4.6 体检 | `python write/references/b1-images/scripts/check_urls.py --html <article-wx.html> --map mmbiz_map.json` | mmbiz URL 全活 + 无残留 `__MMP__` 占位 + 无漏传 |
+| 3 清单预检 | `python Write/references/b1-images/scripts/figure_manifest.py check manifest.json` | FAIL 清零（>1MB、非 jpg/png、缺字段、filename 重复、图上文字无出处） |
+| 4 批量上传 | `python Write/references/b1-images/scripts/upload_imgs.py --manifest manifest.json --map mmbiz_map.json`（或 `--html` / `--img`） | `mmbiz_map.json`（键为图片 basename，与 `filename` 同名）；封面另用 `python scripts/wx_api.py cover .\cover.png` 取 `media_id` |
+| 4.5 回填占位 | `python Write/references/b1-images/scripts/fill_placeholders.py --html <article-wx.html> --map mmbiz_map.json` | 把 A3 直出 HTML 里的 `__MMP__:<filename>` 替换为 mmbiz URL；残留即 FAIL |
+| 4.6 体检 | `python Write/references/b1-images/scripts/check_urls.py --html <article-wx.html> --map mmbiz_map.json` | mmbiz URL 全活 + 无残留 `__MMP__` 占位 + 无漏传 |
 （原第 5 步 `scan` 子命令已删：清单一说三张、正文只排两张的漏排，改由 B3 验收包的
 图数一致性子闸核——原设计里 scan 要先有 B2 的 HTML 才能跑，与「先传图后排版」
 构成环形依赖；收到验收层后 B1→B2→B3 单向。另备可选的 `figure_manifest.py verify`
@@ -32,7 +32,7 @@ B1 的产出物是两样：**一份图片清单** + **清单里每张图对应�
 
 ## 脚本分工
 
-| 脚本（均在 `write/references/b1-images/scripts/`） | 产出物 |
+| 脚本（均在 `Write/references/b1-images/scripts/`） | 产出物 |
 |---|---|
 | `figure_plan.py` | 分层配图需求校验（`check`）与需求→manifest 展开（`from-ledger`）；读 A3 逻辑台账各层结论决定配什么图 |
 | `figure_manifest.py` | 清单骨架、清单预检报告、清单/正文一致性核验、mermaid 目录转清单条目 |
@@ -75,7 +75,7 @@ B1 的产出物是两样：**一份图片清单** + **清单里每张图对应�
 | 封面 | （走 `gen_cover.py`） | `gen_cover.py` | 大卡 900×383 展示最佳，建议 2048×880 |
 
 图下均配图注（排版层的 caption 组件，即 theme-default 组件 8，编号规则由
-`write/references/b2-typeset/scripts/typeset_plan.py audit` 核）。
+`Write/references/b2-typeset/scripts/typeset_plan.py audit` 核）。
 
 示意图/表格渲染后、封面生成后，正文图统一 `uploadimg` 换 mmbiz URL 再放入正文。
 封面可用 `gen_cover.py --title/--subtitle` 原生叠字（属正当的原生绘制，非「盖字修补」；
@@ -86,4 +86,4 @@ B1 的产出物是两样：**一份图片清单** + **清单里每张图对应�
 - 内容轨道没成稿前不要开始配图：`position` 字段要写到「第三节 段2 之后」，
   稿子结构还在变时填不了。
 - 图片 URL 会不会掉、掉几张，最终由 B5 回读的 mmbiz 计数把关
-  （`write/references/b5-readback/readback-verification.md`）。
+  （`Write/references/b5-readback/readback-verification.md`）。

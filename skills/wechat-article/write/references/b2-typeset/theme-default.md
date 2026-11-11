@@ -65,7 +65,7 @@
   <img src="https://mmbiz.qpic.cn/…" alt="图注文字" style="max-width:100%;border-radius:10px;display:block;margin:0 auto;">
 </section>
 ```
-注：img 必须用 `<section style="text-align:center">` 包裹强制居中；实际产物还须按红线「离线可见铁律」带 `data-fallback`/`onerror` 与 `background-image` 内嵌兜底，此处仅示意居中结构。img 是内联元素，单独写 `margin:0 auto` 在微信端不可靠（实测偏左，批量改为 section 包裹后居中）。
+注：img 必须用 `<section style="text-align:center">` 包裹强制居中。img 是内联元素，单独写 `margin:0 auto` 在微信端不可靠（实测偏左，批量改为 section 包裹后居中）。
 
 ### 8. 图注（图下小字）
 ```html

@@ -10,26 +10,26 @@ summary: B3 验收阶段人工子闸的六项核对单、签字留痕机制与�
 
 ## 两件事分开
 
-- `write/references/b3-acceptance/scripts/wrap_preview.py <article.html>`：把已校验的 HTML 包成本地
+- `Write/references/b3-acceptance/scripts/wrap_preview.py <article.html>`：把已校验的 HTML 包成本地
   预览页，供浏览器打开看观感、一键复制进编辑器。**预览页是外壳文件，不参与校验**——它带
   `<style>`/文档外壳是给本地浏览器用的，微信侧的交付物仍是里面那份 `<section>` 片段。
   B3 批量闸的 `--skip-preview` 就是为跳过这类文件而存在的。
-- `write/references/b3-acceptance/scripts/manual_signoff.py`：把核对单变成可留痕的记录。
+- `Write/references/b3-acceptance/scripts/manual_signoff.py`：把核对单变成可留痕的记录。
 
 ## 六项核对单
 
 ```bash
-python write/references/b3-acceptance/scripts/manual_signoff.py checklist [-o checklist.md]
+python Write/references/b3-acceptance/scripts/manual_signoff.py checklist [-o checklist.md]
 ```
 
 - [ ] 金额/编号类演示数据已标注「教学示例/演示数据」
 - [ ] 代码片段与仓库源码逐行一致（抽查关键行）
 - [ ] `--title` 取正文标题的短句、与正文标题有差异；字节与字符上限见
-      `write/references/b4-push/draft-push-parameters.md`「参数上限」
+      `Write/references/b4-push/draft-push-parameters.md`「参数上限」
 - [ ] 封面已准备，且与账号内已推过的篇目不重复
 - [ ] `qa_mobile` 整页截图在手机宽度下观感可接受（首屏有完整一句、代码未折断、图居中、无大面积深色块）
 - [ ] 推送后需附「发布前必设四项」提醒——清单与固定话术见
-      `write/references/b4-push/draft-push-parameters.md`「推送与预览工作流」第 4 步
+      `Write/references/b4-push/draft-push-parameters.md`「推送与预览工作流」第 4 步
 
 第 5 项对应的四件事由渲染子闸 `render_gate.py review` 打印，逐屏核对（它会按整页高度换算成
 几个手机屏）。第 3、6 项在 B4 推送，但必须在签字前就看一眼——签完再发现标题超限，等于白签。
@@ -37,9 +37,9 @@ python write/references/b3-acceptance/scripts/manual_signoff.py checklist [-o ch
 ## 签字与拒签
 
 ```bash
-python write/references/b3-acceptance/scripts/manual_signoff.py record \
+python Write/references/b3-acceptance/scripts/manual_signoff.py record \
     --html <article.html> --qa <article_qa390.png> --note "<看了截图的哪几处、结论是什么>"
-python write/references/b3-acceptance/scripts/manual_signoff.py require --json <article_B5.json>
+python Write/references/b3-acceptance/scripts/manual_signoff.py require --json <article_B5.json>
 ```
 
 `record` 拒绝空签，三种情况直接 `[FAIL]` 且不留记录：HTML 不存在、390px 截图不存在

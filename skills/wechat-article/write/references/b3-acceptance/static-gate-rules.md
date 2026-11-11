@@ -7,7 +7,7 @@ summary: B3 验收阶段静态子闸的规则源、ERROR/WARNING 口径、批量
 
 ## 规则源只有一份
 
-`write/references/b3-acceptance/scripts/validate_wx_html.py` 是微信兼容红线的**唯一实现**：
+`Write/references/b3-acceptance/scripts/validate_wx_html.py` 是微信兼容红线的**唯一实现**：
 检查禁用标签/属性/样式、代码块结构、图片域名、转义、禁用词与半角标点，并核对产物是否为
 纯 `<section>` 片段。根 `scripts/wx_draft_push.py` 的推送闸加载的就是它的 `validate()`——
 两处必须同一套判据，所以推送闸不需要、也不允许再有一套自己的规则。
@@ -19,18 +19,18 @@ A 轨写作纪律与 B3 静态红线共用，改完跑 `python tests/run_all.py`
 退出码：`1` = 有 ERROR（会被微信过滤或显示异常，必须修复）；`0` = 通过（WARNING 建议人工确认）。
 
 ```bash
-python write/references/b3-acceptance/scripts/validate_wx_html.py <file.html>
-python write/references/b3-acceptance/scripts/validate_wx_html.py --stdin < file.html
+python Write/references/b3-acceptance/scripts/validate_wx_html.py <file.html>
+python Write/references/b3-acceptance/scripts/validate_wx_html.py --stdin < file.html
 ```
 
 ## 批量闸 `static_check.py`
 
-`write/references/b3-acceptance/scripts/static_check.py` **不重新实现任何判据**，只委托同目录的
+`Write/references/b3-acceptance/scripts/static_check.py` **不重新实现任何判据**，只委托同目录的
 `validate()`，管单文件校验器不管的三件事：批量（一次扫一个目录/多份 HTML）、门禁
 （把「ERROR=0」变成可接进流水线的一条命令，非零即断）、留痕（机器可读 JSON，供验收包与交付说明引用）。
 
 ```bash
-python write/references/b3-acceptance/scripts/static_check.py <文件或目录> [...] \
+python Write/references/b3-acceptance/scripts/static_check.py <文件或目录> [...] \
     [--json out.json] [--strict] [--skip-preview] [--validate-dir <目录>]
 ```
 

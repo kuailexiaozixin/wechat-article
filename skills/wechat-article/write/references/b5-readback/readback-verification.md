@@ -28,7 +28,7 @@ API 推送路径微信不清洗正文，所以**不相等即「推的不是这�
 回读只数 mmbiz 引用次数。URL 存在但已失效这类问题，B3 关不掉、B5 看不见，
 要靠 `../b1-images/image-upload-interfaces.md`「URL 失效处理」的定期抽查。
 
-## `write/references/b5-readback/scripts/readback_check.py` 补的三件事
+## `Write/references/b5-readback/scripts/readback_check.py` 补的三件事
 
 本脚本**不重新实现任何回读判据**，逐条比对全部委托根 `scripts/check_draft.py --json`，
 规则源只有一份。它只管 check_draft 覆盖不到的留痕：
@@ -45,10 +45,10 @@ API 推送路径微信不清洗正文，所以**不相等即「推的不是这�
    图数 > 0」这种漏检。
 
 ```bash
-python write/references/b5-readback/scripts/readback_check.py --record push.json
-python write/references/b5-readback/scripts/readback_check.py --record push.json --manifest manifest.json
-python write/references/b5-readback/scripts/readback_check.py --record push.json --check-urls
-python write/references/b5-readback/scripts/readback_check.py --media-id MEDIA_ID --source article.html --json
+python Write/references/b5-readback/scripts/readback_check.py --record push.json
+python Write/references/b5-readback/scripts/readback_check.py --record push.json --manifest manifest.json
+python Write/references/b5-readback/scripts/readback_check.py --record push.json --check-urls
+python Write/references/b5-readback/scripts/readback_check.py --media-id MEDIA_ID --source article.html --json
 ```
 
 `--check-urls` 在回读之外追加一次 mmbiz 图 URL 可达性体检（HTTP GET），**仅警示、不改变退出码**，

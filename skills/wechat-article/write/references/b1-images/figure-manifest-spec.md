@@ -5,13 +5,13 @@ summary: B1 图片清单的字段定义、必填判据与图上文字可追溯�
 
 # B1 图片清单规范
 
-`write/references/b1-images/scripts/figure_manifest.py` 的四条子命令，判据都以这份清单为输入。B1 的产出物不是
+`Write/references/b1-images/scripts/figure_manifest.py` 的四条子命令，判据都以这份清单为输入。B1 的产出物不是
 一堆图片文件，而是这份清单——图片是清单的执行结果。
 
 ## 生成骨架
 
 ```bash
-python write/references/b1-images/scripts/figure_manifest.py template -o manifest.json
+python Write/references/b1-images/scripts/figure_manifest.py template -o manifest.json
 ```
 
 字段含义（一张图一条，写在 `figures` 数组里）：
@@ -33,7 +33,7 @@ python write/references/b1-images/scripts/figure_manifest.py template -o manifes
 ## 判据（`check` 子命令）
 
 ```bash
-python write/references/b1-images/scripts/figure_manifest.py check manifest.json [--json]
+python Write/references/b1-images/scripts/figure_manifest.py check manifest.json [--json]
 ```
 
 FAIL（拦死，退出码 1）：
@@ -73,14 +73,14 @@ SKIP：未装 Pillow 时跳过封面宽高比与正文图宽度核对（SKIP 不
 
 A3 逻辑走「文章台账 article-ledger.md」逐层构建文章，配图需求跟着各层结论走，不是文末统一补。
 AI 读完台账 L1→L4 后产出一份 `figure-requirements.json`（配图需求清单），再用
-`write/references/b1-images/scripts/figure_plan.py` 校验并展开成 manifest：
+`Write/references/b1-images/scripts/figure_plan.py` 校验并展开成 manifest：
 
 ```bash
 # 1. AI 读台账各层 → 手填 figure-requirements.json（每条：layer/figure_type/trigger/tool/filename/...）
 # 2. 校验需求（层级↔图形式是否错配、触发判据是否写清）
-python write/references/b1-images/scripts/figure_plan.py check figure-requirements.json
+python Write/references/b1-images/scripts/figure_plan.py check figure-requirements.json
 # 3. 展开成 manifest（缺的 position/source_basis 会留 TODO，补齐后进原 check 流程）
-python write/references/b1-images/scripts/figure_plan.py from-ledger figure-requirements.json -o manifest.json
+python Write/references/b1-images/scripts/figure_plan.py from-ledger figure-requirements.json -o manifest.json
 ```
 
 ### 层级 × 图形式 × 触发条件（什么层配什么图）

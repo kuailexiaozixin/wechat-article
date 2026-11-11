@@ -111,7 +111,7 @@ def check_acceptance(html, acc_path):
     fails = []
     if not acc_path:
         return ["缺少 --acceptance：B3 验收包是推送的唯一前置，没有它不许推"
-                "（python write/references/b3-acceptance/scripts/acceptance_pack.py ...）"]
+                "（python Write/references/b3-acceptance/scripts/acceptance_pack.py ...）"]
     if not os.path.isfile(acc_path):
         return ["验收包不存在：%s" % acc_path]
     try:

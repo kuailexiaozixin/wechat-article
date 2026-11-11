@@ -49,7 +49,7 @@
 - 样式单一来源：本目录 `theme-default.md`。主色深蓝 `#1F3864` + 点缀金 `#B08D3E`，大标题 22px
   居中 + 金线装饰，章节标题 18px 加粗左竖条，正文 16px/1.9/首行缩进 2em，代码块 `#F6F8FA` 底，
   行内代码 `#C7254E`，图注 12.5px 灰。
-- 手写样式容易漂移。**优先用本目录 `write/references/b2-typeset/scripts/build_blocks.py` 从 JSON 生成**：组件名与参数见脚本内
+- 手写样式容易漂移。**优先用本目录 `Write/references/b2-typeset/scripts/build_blocks.py` 从 JSON 生成**：组件名与参数见脚本内
   `BLOCKS`，生成物与 `theme-default.md` 逐字一致（`tests/test_theme_blocks.py` 比对，改文档或改
   脚本任一侧不一致即报红）。
 - 需要新主题时，以 `theme-default.md` 为模板另建 `theme-<名称>.md`，并遵守「样式必须来自已验证

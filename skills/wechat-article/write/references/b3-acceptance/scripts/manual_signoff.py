@@ -23,11 +23,11 @@ ITEMS = [
     "金额/编号类演示数据已标注「教学示例/演示数据」",
     "代码片段与仓库源码逐行一致（抽查关键行）",
     "--title 取正文标题的短句、与正文标题有差异；字节与字符上限见 "
-    "write/references/b4-push/draft-push-parameters.md「参数上限」",
+    "Write/references/b4-push/draft-push-parameters.md「参数上限」",
     "封面已准备，且与账号内已推过的篇目不重复",
     "qa_mobile 整页截图在手机宽度下观感可接受（首屏有完整一句、代码未折断、图居中、无大面积深色块）",
     "推送后需附「发布前必设四项」提醒——清单与固定话术见 "
-    "write/references/b4-push/draft-push-parameters.md「推送与预览工作流」第 4 步",
+    "Write/references/b4-push/draft-push-parameters.md「推送与预览工作流」第 4 步",
 ]
 
 

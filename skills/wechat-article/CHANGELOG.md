@@ -1,5 +1,18 @@
 # CHANGELOG — wechat-article
 
+## 5.17.0（2026-11-10）取消「离线可见性」强制要求：图片不再内嵌 base64 兜底
+
+**背景**：用户对照既有文章发现历史成稿全是纯 mmbiz 链接（约 32KB），而「离线可见铁律」要求的 `data-fallback`/`onerror`/`background-image` base64 兜底会把稿件撑到 8–10MB，且实测无效——微信图床防盗链在 `file://` 打开时返回的是 HTTP 200 占位图（「未经允许不可引用」），`onerror` 不触发，兜底永远不生效。本地看不到真图属预期行为，真图以公众号后台/编辑器预览为准。
+
+**本版改动**：
+
+- `Write/references/b3-acceptance/wx-html-redlines.md`：删除「离线可见铁律（5.16.2）」，替换为「图片链接口径」——`src` 必须 mmbiz、不加 base64 兜底、file:// 占位图属预期、核图用 `wrap_preview.py` 临时预览；base64 归档条款同步删掉对属性级兜底的豁免引用。
+- `Write/SKILL.md`：B1 第 7 步由「本地可见性自检（两轮渲染）」改为「产物唯一性自检 + file:// 占位图预期说明」；B1/B3 出口闸删除「图片可见性 PASS」项；B3 渲染子闸删除 `check_image_visibility.py` 强制两轮。
+- `Write/references/b2-typeset/theme-default.md`、`Write/references/b1-images/image-upload-interfaces.md`：删除排版必须带属性级兜底的要求，改为「只写 src 与内联样式」。
+- `Write/references/b3-acceptance/scripts/acceptance_pack.py`：闸门列表移除 `image_visibility`（函数一并删除）；`check_image_visibility.py` 脚本保留，仅作可选的手动诊断工具，不再参与验收。
+
+**验证**：`acceptance_pack.py` 语法 OK，实跑闸门列表为 static/render/manual/figcount/artifact_unique 五项，无 image_visibility；全仓库 grep 无「离线可见 / gate_image_visibility」残留（CHANGELOG 历史与脚本自身除外）。
+
 ## 5.16.0（2026-11-04）表述规范三处缺口补齐：制作痕迹硬闸、被动语态执行链、段落/句子循环审核
 
 **背景**：三篇成稿把 A3 台账的制作说明原样搬进正文与图注（「结尾交代适用前提」「系列定位在这一层收口」「对应台账第一节与第二节」「下面按四步展开」「均标注推断」），并大量使用被动式。当时 `check_prose.py` 与 B3 静态闸全部报绿。查下来是三个真实缺口，不全是执行问题：
@@ -58,9 +71,9 @@
 **背景**：桌面 `词语.md` 是面向财税法专业文章的「词语层（写法·审核·润色）」完整规范，对应 A3 五层里 L5 句子内最细粒度（句→词→字）。此前 L5 只有句/段/文风层文档，缺独立的词语层详规。
 
 **本版改动**：
-- 新建 `write/references/a3-logic/l5-craft/word-craft.md`：词语层完整规范（写法·审核·润色），含情态动词表、近义术语区分、选词三查、高风险词四类、审核六关 + 三秒测试、润色七法、与 L5 三查及 L4 强度分级的衔接、词语清单练习。
+- 新建 `Write/references/a3-logic/l5-craft/word-craft.md`：词语层完整规范（写法·审核·润色），含情态动词表、近义术语区分、选词三查、高风险词四类、审核六关 + 三秒测试、润色七法、与 L5 三查及 L4 强度分级的衔接、词语清单练习。
 - `word-tables.json` 新增 `risk` 类目（绝对化/收益承诺/政策传闻/夸大/虚动词），作为 AI 选词三查参考清单（注：`check_prose.py` 词表为硬编码元组，不读此文件，见 craft-spec.md / word-craft.md）。
-- 接索引：`craft-spec.md`（选词层指向 word-craft.md）、`build-overview.md`（写作规范段增词语层条目 + 成文工艺文档清单补 word-craft.md）、`ledger-spec.md`（L5 工艺增 word-craft.md + L5 自检项补词语层）、`write/SKILL.md`（A3 L5 规范行增 word-craft.md）。
+- 接索引：`craft-spec.md`（选词层指向 word-craft.md）、`build-overview.md`（写作规范段增词语层条目 + 成文工艺文档清单补 word-craft.md）、`ledger-spec.md`（L5 工艺增 word-craft.md + L5 自检项补词语层）、`Write/SKILL.md`（A3 L5 规范行增 word-craft.md）。
 - 桌面源文件 `C:\Users\贺新\Desktop\词语.md` 按铁律移入回收站（非物理删除）。
 
 **门禁**：`tests/run_all.py` 13/13 通过；`word-tables.json` 校验合法（top keys: colloquial/praise/risk/patterns）。
@@ -86,7 +99,7 @@
 - `l5-craft/sentence-craft.md` → `l5-craft/craft-spec.md`；H1 改为「L5 句子内（工艺规范）」，并修正一处相对路径笔误（`../scripts/check_prose.py` → `scripts/check_prose.py`）。
 - `build-overview.md`：L5 行目录标注 `craft-spec.md`；「写作规范与文风」段新增三查＋HTML 直出条目；第 27 行 `sentence-craft.md` 显式锚定 `l4-sentence/`；第 51 行补注「（L4 论证规范，L5 沿用）」。
 - `ledger-spec.md`：L5 成文工艺引用补 `craft-spec.md`。
-- `write/SKILL.md`：L5 行引用改为 `l5-craft/craft-spec.md`。
+- `Write/SKILL.md`：L5 行引用改为 `l5-craft/craft-spec.md`。
 - `tests/test_a_track_gates.py`、`evals/evals.json`、`l5-craft/scripts/craft_check.py`：同步改为 `craft-spec.md`／`../craft-spec.md`。
 - `l4-sentence/sentence-craft.md` 及其所有引用（L2-L4 各详规、SKILL.md、CHANGELOG 历史条目）保持不变。
 
@@ -94,7 +107,7 @@
 
 ## 5.10.0（2026-11-04）L4 补句子层参考文档 `sentence.md`，句子层规范补齐
 
-**新增**：`write/references/a3-logic/l4-sentence/sentence.md`（句子：写作 · 审核 · 润色）——句子层的完整规范，位置在段落之下、词之上：
+**新增**：`Write/references/a3-logic/l4-sentence/sentence.md`（句子：写作 · 审核 · 润色）——句子层的完整规范，位置在段落之下、词之上：
 
 - **句子定义与作用**：承载一个判断的最小单位（一段通常 3–6 句，每句只传递一个判断）；承载完整判断、建立句间逻辑、承担法律表述精确性、控制阅读节奏、构成合规底线。
 - **写法**：一个句子只做一个判断、主语要出现要明确、专业写作句子公式（主体+行为/状态+法律后果或判断依据）、法律表述五个精确点（情态动词/范围词/时间口径/引用格式/否定位置）、长短句配比。
@@ -109,13 +122,13 @@
 
 **分工消歧**：`l4-sentence/` 下三份文档职责写进各自开头——`sentence-logic.md` 管句级论证与句病自检、`sentence-craft.md` 管条文依据/强度分级/边界表述、`sentence.md` 管句子层完整规范。
 
-**索引同步四处**：`a3-logic/build-overview.md`（五层表增"└ 句子层详规"行）、`a3-logic/ledger-spec.md`（台账 §四）、`write/SKILL.md`（L4 行）、`l4-sentence/` 两份既有文档的开头分工说明。
+**索引同步四处**：`a3-logic/build-overview.md`（五层表增"└ 句子层详规"行）、`a3-logic/ledger-spec.md`（台账 §四）、`Write/SKILL.md`（L4 行）、`l4-sentence/` 两份既有文档的开头分工说明。
 
 **规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
 
 ## 5.9.0（2026-11-04）L3 补段落层参考文档 `paragraph.md`，段落层规范补齐
 
-**新增**：`write/references/a3-logic/l3-paragraph/paragraph.md`（段落：写作 · 审核 · 润色）——段落层的完整规范，位置在章节之下、句子之上：
+**新增**：`Write/references/a3-logic/l3-paragraph/paragraph.md`（段落：写作 · 审核 · 润色）——段落层的完整规范，位置在章节之下、句子之上：
 
 - **段落定义与作用**：一个不能再拆的"主张单元"（通常 3–6 句，只承担一个功能）；封装完整意思、给眼睛休息、构成论证的最小台阶、承担过渡、便于质检复核。
 - **写法**：黄金结构（主张—支撑—回扣四层）、每段只干一件事（功能对照表）、三条硬规矩（引文必挂文号 / 区分事实与判断 / 长段必拆）、段首句写法。
@@ -130,13 +143,13 @@
 
 **分工消歧**：`l3-paragraph/` 下三份文档职责写进各自开头——`paragraph-logic.md` 管段落之间的承接与三类段落病、`paragraph-craft.md` 管段内写法要点与注水检测、`paragraph.md` 管段落层完整规范（写法·审核·润色）。
 
-**索引同步四处**：`a3-logic/build-overview.md`（五层表增"└ 段落层详规"行）、`a3-logic/ledger-spec.md`（台账 §三）、`write/SKILL.md`（L3 行）、`l3-paragraph/` 两份既有文档的开头分工说明。
+**索引同步四处**：`a3-logic/build-overview.md`（五层表增"└ 段落层详规"行）、`a3-logic/ledger-spec.md`（台账 §三）、`Write/SKILL.md`（L3 行）、`l3-paragraph/` 两份既有文档的开头分工说明。
 
 **规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
 
 ## 5.8.0（2026-11-04）L2 补章节层参考文档：开头/正文/章节/结尾四份齐备
 
-**新增**：`write/references/a3-logic/l2-chapter/chapter.md`（章节：写作 · 审核 · 润色）——补齐章节这一层的逐部分规范，位置在「开头/正文/结尾」三份之下、段落与句子之上：
+**新增**：`Write/references/a3-logic/l2-chapter/chapter.md`（章节：写作 · 审核 · 润色）——补齐章节这一层的逐部分规范，位置在「开头/正文/结尾」三份之下、段落与句子之上：
 
 - **章节定义与作用**：承载一个独立分论点的完整单元，比段大、比篇小；分装分论点、给读者歇脚点、让论证可复核、可复用可拆合、控制篇幅与重心。
 - **写法**：章节卡（分论点/证据/形式/回应什么四行施工图）、章内五段式（章节导语→主张句→支撑层→解释层→收束句）、章节标题规则、四种章间衔接法（问题牵引/对比并列/递进加深/场景串接）。
@@ -149,13 +162,13 @@
 1. **篇幅阈值**：外部稿的"单章超 35% 即拆"改为 **45%**，与 `outline_check.py` 的 `SECTION_SHARE_MAX` 一致（该阈值有测试覆盖）。
 2. **章节标题**：外部稿建议"可以用设问"，改为**不设问**——理由是 `l5-craft/final-craft.md` 规定小标题写内容本身，且同行阅读习惯是先看结论再看依据；设问会让读者停下来等答案。同时补入微信端渲染事实（标题层级用 `<p>` + 加粗/字号，不靠 `<h1>`–`<h6>`，见 `b2-typeset/wx-html-templates.md`）与"裸编号相撞"禁令（L3 自检项）。
 
-**索引同步四处**：`l2-chapter/chapter-logic.md`、`a3-logic/build-overview.md`（五层表"└ 逐部分详规"行）、`a3-logic/ledger-spec.md`（台账 §二）、`write/SKILL.md`（L2 行）。
+**索引同步四处**：`l2-chapter/chapter-logic.md`、`a3-logic/build-overview.md`（五层表"└ 逐部分详规"行）、`a3-logic/ledger-spec.md`（台账 §二）、`Write/SKILL.md`（L2 行）。
 
 **规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
 
 ## 5.7.0（2026-11-04）L2 补三份逐部分参考文档（开头/正文/结尾），按研究性专业文章体裁适配
 
-**新增**：`write/references/a3-logic/l2-chapter/` 下三份参考文档，各覆盖对应部分的「写作 · 审核 · 润色」：
+**新增**：`Write/references/a3-logic/l2-chapter/` 下三份参考文档，各覆盖对应部分的「写作 · 审核 · 润色」：
 
 - `opening.md`（开头）：作用、四类文章的起手落点（`政策解读` / `理论分析` / `案例分析` / `操作指引` 各不相同）、具体锚点写法、三条硬规矩（不铺垫起手、不写"本文将"、强度不越级）、四层审核、移位/删减/换入口/加锚点/调音五步润色、自查清单；
 - `body.md`（正文）：一章一事骨架、章内"主张—依据—回扣"、内容接力式过渡、依据要贴（条文/数据/案例/引语各须交代什么）、四层审核、先结构后文字的润色五步、"标·问·调·读"四步工作流；
@@ -163,7 +176,7 @@
 
 **体裁适配**：三份文档按本技能唯一体裁撰写——面向财务、税务、法律、金融、经济领域的**研究性专业文章**，读者是同行（财会人员、税务干部、律师、投行与研究员、监管人员）。开头交出「核心问题 + 结论倾向 + 适用范围」，正文交出「可复用的判断」，结尾交出「可带走的判断 + 边界」；示例统一使用条文号、金额口径、案号、生效时点等可核对材料，不用情绪与故事。
 
-**索引同步**：`l2-chapter/chapter-logic.md` 增「各部分的详细写法」小节列出三份文档；`a3-logic/build-overview.md` 五层表增「└ 逐部分详规」行；`write/SKILL.md` 的 L2 行补三份文档指向。
+**索引同步**：`l2-chapter/chapter-logic.md` 增「各部分的详细写法」小节列出三份文档；`a3-logic/build-overview.md` 五层表增「└ 逐部分详规」行；`Write/SKILL.md` 的 L2 行补三份文档指向。
 
 **规范**：本次及既往的迁移/文档修改记录只记在本 CHANGELOG，技能正文（skill body）不保留任何历史/迁移说明，避免干扰 LLM。
 
@@ -229,7 +242,7 @@ B1 的 `upload_imgs.py` 不识别（当本地路径报 WARN 跳过）、B1 文�
 - **`check_urls.py --html` 加残留判据**：HTML 里残留 `__MMP__` 即 FAIL，纳入 B1 出口闸。
 - **`upload_imgs.py` 加 `--manifest` / `--img-root`**：按清单 `filename` 批量上传正文图；扫 HTML 时
   识别并跳过 `__MMP__:` 占位（不再误报本地路径 WARN）。
-- B1 流程加「4.5 回填 / 4.6 体检」两步，`write/SKILL.md` B1 段同步；新增 `tests/test_b1_fill.py`
+- B1 流程加「4.5 回填 / 4.6 体检」两步，`Write/SKILL.md` B1 段同步；新增 `tests/test_b1_fill.py`
   固化该交接（正向回填、反向缺 key、残留判据、manifest_need 收集）。回归：run_all 11 通过（含
   test_b1_fill）/ 1 跳过(playwright)/ 0 失败；evals 路由 0 失败。
 
@@ -309,9 +322,9 @@ answer/长帖/文章三种体），与专业文章的失败模式对不上：这
 
 **三份旧文档拆解归位并删除**：`writing-discipline.md`、`human-writing-nonfiction.md`、
 `de-ai-measures.md` 拆入 a1-a5 五个目录（删除前逐条核对 44 个关键事实点，其中 10 项确认为
-技术博客体裁专属、随体裁收敛一并废弃），`write/references/` 顶层不再有 A 轨文档。
-`check_prose.py`、`check_duplicates.py` 从 `write/scripts/` 移入
-`write/references/a5-draft/scripts/`，`write/scripts/` 目录随之清空。
+技术博客体裁专属、随体裁收敛一并废弃），`Write/references/` 顶层不再有 A 轨文档。
+`check_prose.py`、`check_duplicates.py` 从 `Write/scripts/` 移入
+`Write/references/a5-draft/scripts/`，`Write/scripts/` 目录随之清空。
 
 **A4 的第五层收口**：原方法论列到「句子成分与词汇」层。逐词建 JSON 的维护成本高于收益
 （成本一旦超过收益，这一步就会被跳过，等于什么都没有），故第五层只落到**术语一致性**——
@@ -329,12 +342,12 @@ answer/长帖/文章三种体），与专业文章的失败模式对不上：这
 ## 5.1.0（2026-11-03）B 轨道 7 阶段→5 阶段：验收三闸合一 + 哈希链取代 mtime
 
 **结构**：B1-B7 收敛为 **B1 配图 → B2 排版 → B3 验收 → B4 推送 → B5 回读**。原 B3 静态校验、
-B4 真机渲染、B5 人工签字合并为 `write/references/b3-acceptance/`（三道子闸判据互不覆盖但
+B4 真机渲染、B5 人工签字合并为 `Write/references/b3-acceptance/`（三道子闸判据互不覆盖但
 裁决的是同一份 HTML 的同一个问题——「能不能推」，且旧 B6 推送的 `--b5/--b3/--b4` 全是可选
 参数，漏传即绕过，三道闸变成三道建议）；B6→`b4-push/`、B7→`b5-readback/`。每阶段一个
 唯一交付物 + 一个出口判据，阶段间靠调用上游能力而非引用上游文档。
 
-**判据权威拆分**：共享规则源 `write/references/wx-html-rules.md` 按消费方拆分——§一形态+§二红线
+**判据权威拆分**：共享规则源 `Write/references/wx-html-rules.md` 按消费方拆分——§一形态+§二红线
 → `b3-acceptance/wx-html-redlines.md`，§三模板+§四正文排版 → `b2-typeset/wx-html-templates.md`
 （拆分前做了 37 项事实点覆盖核对），原文件删除；`theme-default.md` 迁入 `b2-typeset/`（主消费者）。
 
@@ -349,25 +362,25 @@ image.url 判据（红线唯一权威归 B3）；`figure_manifest.py` 删 `scan`
 崩溃（改函数内延迟 import），`wrap_preview.py`、`readback_check.py` 补 `-h`。全链 6 场景冒烟
 （含伪造包、验收后改稿、WAF 501 委托链）与 `tests/run_all.py` 均通过。
 
-## 5.0.0（2026-11-03）子技能 5→3：`draft/`、`materials/` 并入 `write/` 的 B1-B7 交付轨道
+## 5.0.0（2026-11-03）子技能 5→3：`draft/`、`materials/` 并入 `Write/` 的 B1-B7 交付轨道
 
-破坏性结构变更，故主版本跳。原来「写文章」这件事被切成三个子技能（`write/` 写作排版、
+破坏性结构变更，故主版本跳。原来「写文章」这件事被切成三个子技能（`Write/` 写作排版、
 `materials/` 传图、`draft/` 推草稿），但一条交付链上每一步都要翻下一份文档，而三份文档里
 「正文图必须先换 mmbiz URL」「推送前必跑校验」这类口径各写了一遍、措辞不同，改一处忘两处
-的风险随文档数增长。本轮把它收敛成一条轨道：`write/SKILL.md` 里 **A 轨道（内容 A1-A5）+
+的风险随文档数增长。本轮把它收敛成一条轨道：`Write/SKILL.md` 里 **A 轨道（内容 A1-A5）+
 B 轨道（交付 B1-B7）**，每个流程一个目录，目录内自带说明文档与 `scripts/`。
 
 **落点与归属**：
 
 | 流程 | 目录 | 文档 |
 |---|---|---|
-| B1 配图上传 | `write/references/b1-images/` | `image-upload-interfaces.md`（materials 全部口径）、`figure-manifest-spec.md`、`image-flow-steps.md` |
-| B2 排版 | `write/references/b2-typeset/` | `typeset-workflow.md` |
-| B3 静态校验 | `write/references/b3-validate/` | `static-gate-rules.md` |
-| B4 真机渲染 | `write/references/b4-render/` | `render-gate-rules.md` |
-| B5 人工签字 | `write/references/b5-manual/` | `manual-signoff-checklist.md` |
-| B6 推送 | `write/references/b6-push/` | `draft-push-parameters.md`（draft 全部口径） |
-| B7 回读 | `write/references/b7-readback/` | `readback-verification.md` |
+| B1 配图上传 | `Write/references/b1-images/` | `image-upload-interfaces.md`（materials 全部口径）、`figure-manifest-spec.md`、`image-flow-steps.md` |
+| B2 排版 | `Write/references/b2-typeset/` | `typeset-workflow.md` |
+| B3 静态校验 | `Write/references/b3-validate/` | `static-gate-rules.md` |
+| B4 真机渲染 | `Write/references/b4-render/` | `render-gate-rules.md` |
+| B5 人工签字 | `Write/references/b5-manual/` | `manual-signoff-checklist.md` |
+| B6 推送 | `Write/references/b6-push/` | `draft-push-parameters.md`（draft 全部口径） |
+| B7 回读 | `Write/references/b7-readback/` | `readback-verification.md` |
 
 文档名按用户要求不用 `README` 这类笼统名，名字直接说明这份文档管什么。`materials/SKILL.md`
 与 `draft/SKILL.md` 的口径逐条搬入后两目录移入回收站，仓库内不再有指向它们的引用。
@@ -375,11 +388,11 @@ B 轨道（交付 B1-B7）**，每个流程一个目录，目录内自带说明�
 **根 `scripts/` 三支留在原位**（`wx_api.py`、`wx_draft_push.py`、`check_draft.py`）：普查显示
 `cgi-bin/draft/*` 的 14 处引用与 `tests/test_p0_gates.py` 的 4 处 URL 断言都指向**接口名**而不是
 目录，搬动收益为负；B1/B6/B7 的脚本以运行期逐级上溯的方式委托它们，不重复实现接口层。
-`write/scripts/` 只留 `check_prose.py`、`check_duplicates.py`（属内容轨道 A，不在 B1-B7 之内）。
+`Write/scripts/` 只留 `check_prose.py`、`check_duplicates.py`（属内容轨道 A，不在 B1-B7 之内）。
 
 **迁移暴露的四处加载链断裂**（`git mv` 后必测，不是理论问题）：`upload_imgs.py` 写死
 `dirname()×3` 定位 wx_api；`qa_mobile.py` 同目录 `from render_mermaid import launch_browser`
-（render_mermaid 现属 B1）；`wx_draft_push.py` 的 `load_validator()` 指向旧 `write/scripts/`；
+（render_mermaid 现属 B1）；`wx_draft_push.py` 的 `load_validator()` 指向旧 `Write/scripts/`；
 `check_prose.py` docstring 里的路径。前三处统一改为「逐级上溯 + 找不到即明确报错退出」，
 **绝不静默降级为「视为通过」**——脚本被拷走或层级变化时静默通过，比报错危险得多。
 
@@ -398,7 +411,7 @@ exit 1 = 稿件不合格**，两者必须分开，否则会把环境问题读成
 留着会让 `references/api-docs.md`、`references/gotchas.md` 里十几处合法的接口名散文集体报红。
 替代方案（把接口名改成非反引号写法）会污染十几处文档，代价更大。
 
-**evals 收尾**：#1、#7 的 `expected_output` 叙述改到 B1-B7 口径（原来写的是「路由到 write/ +
+**evals 收尾**：#1、#7 的 `expected_output` 叙述改到 B1-B7 口径（原来写的是「路由到 Write/ +
 materials + draft 三个子技能」），新增 #11「材料不足应停下」（`human-writing-nonfiction.md` §1
 的 ≥5 件门槛与三选一）与 #12「B7 回读必跑」（推送成功 ≠ 内容进对）两条用例，共 12 条。
 `test_evals_routes.py` 会逐条核 `--长选项` 是否存在于所引脚本，本轮核到 23 个选项、453 处
@@ -432,7 +445,7 @@ materials + draft 三个子技能」），新增 #11「材料不足应停下」�
   跳过 1 · 失败 0 项」；跳过的一格是 `test_qa_mobile.py`（CI 没有 playwright，渲染验收未跑），
   汇总行按「跳过不计入通过」的口径单列它，上一轮报红的 7 项不再复现。
 - **本地行尾归一**：`materials/scripts/gen_cover.py`、`scripts/check_draft.py`、`scripts/wx_api.py`、
-  `write/scripts/validate_wx_html.py`、`tests/fixtures/sogou_type2_sample.html` 五个文件此前是 CRLF，
+  `Write/scripts/validate_wx_html.py`、`tests/fixtures/sogou_type2_sample.html` 五个文件此前是 CRLF，
   统一成 LF。发布树不含这一改动的影响——同步工具本来就把文本写成 LF，仓库根 `.gitattributes` 再固定
   检出行为，所以归一后 52 个文件的逐字节核对仍全部相同，发布内容一字未变。
 - **本轮没有动的四处遗留**：旧 tag `v4.2.0`–`v4.4.0` 的 `CHANGELOG.md` 第 244 行仍带着当年的示例作者
@@ -443,9 +456,9 @@ materials + draft 三个子技能」），新增 #11「材料不足应停下」�
 ## 4.5.1（2026-10-17）Linux CI 首跑抓到「判据只在装了 bs4 的机器上成立」
 
 v4.5.0 发布后 `verify.yml` 首跑（Actions run `39032141690`，`ubuntu-latest`）报 7 项失败，全在
-`tests/test_read_gate.py` 的 Markdown 结构断言。分诊结论不是排版回归：`read/scripts/read_wechat.py`
+`tests/test_read_gate.py` 的 Markdown 结构断言。分诊结论不是排版回归：`Read/scripts/read_wechat.py`
 的 `html_to_md()` 第一句是 `from bs4 import BeautifulSoup, …`，`ImportError` 就落进正则剥标签的降级
-路径（`extract_content()` 把引擎记在结果的 `parse_mode` 里，`read/SKILL.md` 写明
+路径（`extract_content()` 把引擎记在结果的 `parse_mode` 里，`Read/SKILL.md` 写明
 `regex-degraded` 这条「不产结构，只有段落文本」）。本机装了 bs4 4.15.0，结构七项全中；CI 的 Ubuntu
 runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。**报错的是判据的适用前提，不是脚本。**
 
@@ -468,7 +481,7 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   写法正确必须为绿（这一对是上面那条判据的证伪）；连同 4.5.0 那批 A1–A7、B1–B3b、C1，
   共 19 例，未被检出 0 个。
 - **实现与文档口径**：`html_to_md()` 的实现、`parse_mode` 的三种取值一字未改，本轮只改判据的适用前提。
-  要结构化 Markdown 就得装 bs4，这一条写进 `read/SKILL.md` 与发布仓库根 README，不再让读者从
+  要结构化 Markdown 就得装 bs4，这一条写进 `Read/SKILL.md` 与发布仓库根 README，不再让读者从
   「不产结构」反推该装什么。
 - **遗留**：`verify.yml` 只跑判据、不跑 `gh skill publish --dry-run`；CI 无浏览器，
   `test_qa_mobile.py` 在 CI 恒为 SKIP（渲染验收目前只有本机 msedge 跑过），是否给 CI 加
@@ -482,9 +495,9 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   会把它改写成 LF——「发布物与本地逐字节一致」这一条对它永远不成立，且没有任何一处文档说明它为什么
   是 CRLF。本轮转成 LF（587 行，字节 59655→59068，只差 587 个 `CR`，正文逐行未变），发布仓库根加
   `.gitattributes`（全树 `text=lf`）把这条写死在检出行为里。
-- **大小写双轨加了判据**：本地是 `write/ read/ search/`，发布树按 gh skill 的 `skills/<name>/` 结构
+- **大小写双轨加了判据**：本地是 `Write/ Read/ Search/`，发布树按 gh skill 的 `skills/<name>/` 结构
   收成小写，18 个路径两头不一致，Windows 文件系统不敏感、Linux/macOS 克隆后照文档跑就 file not found。
-  `tests/test_evals_routes.py` 新增第 3 件事：全树文本里的顶层目录引用（`write/…` 斜杠式与 `"Read"`
+  `tests/test_evals_routes.py` 新增第 3 件事：全树文本里的顶层目录引用（`Write/…` 斜杠式与 `"Read"`
   引号式，本轮核对 321 处）与磁盘目录名**逐字符**比对，大小写不符或路径不存在即报红；同一份判据在
   大写树与小写树都跑通，所以「发布物由本地树映射而来」不再靠人工约定。存在性只查「像路径」的引用
   （末段带 `.ext` 或原文以 `/` 结尾），因为 `draft/add`、`draft/batchget` 是微信接口名、
@@ -497,8 +510,8 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   **未跨平台实测**）与 `devtools_port_file()`（环境变量 `WX_EDGE_DEVTOOLS_PORT_FILE` 优先，
   指不到时报错点名该变量与路径）。判据在 `tests/test_read_gate.py` 第 8 节，按 8a–8e 五向断言：
   环境变量覆盖优先、指空文件报错点名、两行缺一报「内容不完整」、候选全不存在时报错点名前提、
-  三平台候选两两不同（分支塌成一条即红）。`read/SKILL.md` 与 `read/references/cdp-edge.md` 同步。
-- **重试上限从口头改成实现值**：`read/SKILL.md` 与 `cdp-edge.md` 都写「单 URL 不超过 3 次」，而
+  三平台候选两两不同（分支塌成一条即红）。`Read/SKILL.md` 与 `Read/references/cdp-edge.md` 同步。
+- **重试上限从口头改成实现值**：`Read/SKILL.md` 与 `cdp-edge.md` 都写「单 URL 不超过 3 次」，而
   `http_get(tries=2)` × 第 1–3 层的实际上限是 6 次、第 4 层是浏览器导航不计入。现在写 6 次，并把数
   钉进常量 `LAYER_TRIES` / `HTTP_MAX_PER_URL`；`test_read_gate.py` 第 9 节要求常量、
   `http_get` 默认值、脚本 docstring、两份文档五处同值，改任一处而其余没跟就报红。
@@ -506,18 +519,18 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   于是「判据文件 8 个，失败 0 项」证明不了 8 个都跑过（上一轮交付里就这么引用过一次）。现在
   `run()` 把原因写进模块全局 `SKIP`，`tests/run_all.py` 汇总改成「判据文件 N 个：通过 X · 跳过 Y ·
   失败 Z 项」，有跳过时末行明写「不能当通过引用」。
-- **Search 的研究记录出正文**：`search/SKILL.md` 汉字 4278、非空行 74（`write/SKILL.md` 是 889/45），
+- **Search 的研究记录出正文**：`Search/SKILL.md` 汉字 4278、非空行 74（`Write/SKILL.md` 是 889/45），
   正文里装的是 26 用例样本、判定纪律、七项未判定，是研究记录而不是工作流，且是五个子技能里唯一没有
-  `references/` 的。新建 `search/references/sogou-probe.md`（1725 汉字）收样本明细、
+  `references/` 的。新建 `Search/references/sogou-probe.md`（1725 汉字）收样本明细、
   「为什么不做到页去重/不早停」、预热 A/B、拦截页形态、票据存活时长与七项未判定各自缺什么证据；
   正文每格只留结论并指过去，正文降到 3902 汉字。搬走的段落逐段在新文件有对应小节，没有删事实。
 - **跨子技能依赖登记进根**：`scripts/wx_draft_push.py` 的推送闸口按目录名加载
-  `write/scripts/validate_wx_html.py` 的 `validate()`，`tests/` 里 `test_prose_pivots.py`、
-  `test_qa_mobile.py`、`test_validate_rules.py`、`test_theme_blocks.py` 四支按目录名取 `write/` 下的
-  脚本与 `write/references/theme-default.md`。`write/` 改名会同时打掉推送闸和这四支判据，而这条边
+  `Write/scripts/validate_wx_html.py` 的 `validate()`，`tests/` 里 `test_prose_pivots.py`、
+  `test_qa_mobile.py`、`test_validate_rules.py`、`test_theme_blocks.py` 四支按目录名取 `Write/` 下的
+  脚本与 `Write/references/theme-default.md`。`Write/` 改名会同时打掉推送闸和这四支判据，而这条边
   此前没写进任何前置说明；现在写在根 SKILL.md「目录与路由」下面，并由上面那条大小写判据守。
 - **根 SKILL.md 自相矛盾修掉**：一边声明「清单在子技能正文里，根不重复列」，一边在安全习惯第 2 条
-  列出三支 `write/scripts/*.py`。该条改为只写闸的顺序与名字（写作硬禁令 → 排版红线静态校验 →
+  列出三支 `Write/scripts/*.py`。该条改为只写闸的顺序与名字（写作硬禁令 → 排版红线静态校验 →
   390px 真机渲染 → 推送 → 回读逐字比对），脚本路径归子技能；「不重复列」也收窄成「不重复列有哪些脚本、
   各自做什么」，与依赖登记那句划清。
 - **用例数不设上界**：`test_evals_routes.py` 原来把 evals 用例数硬卡在 8–10，加第 11 条就报红，而
@@ -526,7 +539,7 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   本机用户名的 SRC/DST，清一次临时目录等于发布能力归零）。工具改为路径全部由命令行给、脚本内不含
   任何绝对路径，新增 `--check-only` 逐文件核对发布树；本轮用它对 v4.4.0 的发布树实测同步前状态：
   **应交付 52 个文件，逐字节相同 41 个，内容有差异 10 个（9 个本轮改过的文件 + `SKILL.md` 的版本号），
-  目标缺失 1 个（新增的 `search/references/sogou-probe.md`），目标多余 0 个**；同步后复核为
+  目标缺失 1 个（新增的 `Search/references/sogou-probe.md`），目标多余 0 个**；同步后复核为
   逐字节相同 52 个、发布树内残留大写目录引用 0 处。仓库里留下的是映射口径本身
   （发布仓库根 README）与守它的判据，两者合起来足够重建发布树，不依赖某个脚本文件是否存在。
   仓库内不写绝对路径、不写本机用户名，个人环境留在仓库外。
@@ -564,14 +577,14 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   缺 playwright 时汇总把「跳过」单列。
 - **遗留**：`check_duplicates.py`、`render_mermaid.py`、`wrap_preview.py`、`gen_cover.py`、
   `upload_imgs.py` 五支脚本仍无判据（后两支直接打接口，出错消耗配额）；搜狗那七项未判定要等本机 IP
-  冷却后按 `search/references/sogou-probe.md` 第 7 节逐格复采；darwin/linux 两条 Edge 候选路径未跨平台
+  冷却后按 `Search/references/sogou-probe.md` 第 7 节逐格复采；darwin/linux 两条 Edge 候选路径未跨平台
   实测，跨平台用户先按 `WX_EDGE_DEVTOOLS_PORT_FILE` 指定；结构哨兵只判数量关系，不判语义字段错位。
 
 ## 4.4.0（2026-10-17）搜狗搜索第二轮实测 + 时间过滤、结构哨兵、票据时刻
 
-只动 `search/`（脚本 + 文档 + 用例 + evals 期望），接口层与写排推链路未改。
+只动 `Search/`（脚本 + 文档 + 用例 + evals 期望），接口层与写排推链路未改。
 
-- **第二轮参数实测**（26 个参数用例，10 个最终被拦；另一次复采连续四次请求全拦后熔断收手，本机 IP 已进入持续拦截）。写进 `search/SKILL.md`
+- **第二轮参数实测**（26 个参数用例，10 个最终被拦；另一次复采连续四次请求全拦后熔断收手，本机 IP 已进入持续拦截）。写进 `Search/SKILL.md`
   第二节的新事实：`s_from`/`_sug_` 可省；`page=10` 仍出结果、`page=11`/`12` 返回无结果容器
   且两次页长逐字节相同（10488）；`tsn=1..4` 四次全部 302 回首页；`type=1` 两轮均空容器；
   真实切片里同页 `timeConvert` **非严格倒序**（10 条 4 处后条比前条新，跨度 0.3 天）。
@@ -584,7 +597,7 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   正好容易触发。现在这类失败单独打「传输层异常」NOTE 并立即停止翻页，与「被拦截」「本页 0 条」
   三种文案互斥：不把一次超时谎报成搜狗拦我，也不谎报成没结果。其二，结果页的 `href` 以前
   只 `urljoin` 补全不验域，`href="//evil.example/x"` 会被拼成合法外域链接交付出去，`-r` 还会
-  拿着本机会话去请求它，调用方也可能顺手把它交给 `read/`。新增 `safe_link`：只放行
+  拿着本机会话去请求它，调用方也可能顺手把它交给 `Read/`。新增 `safe_link`：只放行
   `https://weixin.sogou.com` 且不带端口，其余条目 `link` 置空并落 `link_error`，标题/日期/摘要
   照常交付，`-r` 不为它发一次请求；条目数不变，因此不会被结构哨兵误报成改版。
 - **第三轮：按「先确认有价值再做」复现并修掉两处**（探针走真实 `fetch`，打桩只换 opener；还原侧用三形态外域样本，全程离线）。其一，`fetch` 把 `HTTPError` 和 `URLError` 混在一个
@@ -594,7 +607,7 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   并立即熔断后续还原，500 与网络抖动仍归「传输层异常」，两种文案互斥。其二，`resolve_link` 判
   「是不是微信链接」用的是子串包含，`https://mp.weixin.qq.com.evil.example/s?x=1` 也算命中，
   meta refresh 与 `url +=` 两种形态抽出的目标根本不验主机，外域链接会被当真实链接交付、还会被转手
-  交给 `read/`。新增 `safe_mp_link`（只放行 https + `mp.weixin.qq.com`，无端口），三形态统一过它；
+  交给 `Read/`。新增 `safe_mp_link`（只放行 https + `mp.weixin.qq.com`，无端口），三形态统一过它；
   丢弃时 `resolved` 留空、原因落 `resolve_error`、条目继续带搜狗跳转链接，不算拦截、后续条目照常尝试。
   探针还撞出两处连带脆弱点并一并修掉：主机位置 `[` 不配对时 `urljoin`/`urlsplit` 抛
   `ValueError('Invalid IPv6 URL')`，一条坏 href 能把整次搜索弄崩（现在按非法 URL 只丢那一条）；
@@ -673,8 +686,8 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
 - **母/子技能职能边界重划**（母技能只留"跨子技能才需要"的内容）：
   - 路由表第三列由「覆盖能力」改为「该子技能负责的一件事」，一行一句，能力细则、
     命令、参数、验收判据全部只在对应子技能正文写一份。
-  - 12 项辅助脚本清单改为按归属计数（`write/` 七支、`materials/` 两支、`read/` 与
-    `search/` 各一支），逐项说明归子技能正文。
+  - 12 项辅助脚本清单改为按归属计数（`Write/` 七支、`materials/` 两支、`Read/` 与
+    `Search/` 各一支），逐项说明归子技能正文。
   - 「参数/内容硬约束」压成一句跨子技能口径（草稿标题取正文标题短句、完整标题放正文），
     约束表归 `draft/SKILL.md`、取值域归 `references/api-docs.md`。
   - 「发布」节只留一条判据（先 `check-perm`，`perm:false` 不重试转后台），发布前必设四项
@@ -687,14 +700,14 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   上传/换 URL/批量配图/做封面，数值上限移出 description；Search 声明 type=1 账号搜索未封装；
   write/read/draft/materials 互指边界）。
 - **数值口径回到唯一归属**（去重，不改判据）：`--title`/`--digest` 上限只在 `draft/SKILL.md`
-  「参数约束」与 `references/api-docs.md` 出现，`write/references/writing-discipline.md` 的
+  「参数约束」与 `references/api-docs.md` 出现，`Write/references/writing-discipline.md` 的
   参数表改为只写内容侧写法 + 指针；正文图 1MB / 封面 10MB 的格式与阈值统一归
   `materials/SKILL.md`「图片限制」与 `references/api-docs.md`「官方限额」，
-  `write/references/wx-html-rules.md`、`references/gotchas.md` C2 改为指针；
+  `Write/references/wx-html-rules.md`、`references/gotchas.md` C2 改为指针；
   `48001/53010` 的实测范围只在 `references/gotchas.md` A3，根「发布」节与 `draft/SKILL.md`
   第 4 步改为判据 + 指针；`45110` 从 `writing-discipline.md` 删除，凭据口径归根「凭据」。
-- **目录名大小写按磁盘实写**：正文与 description 里的 `write/`、`search/` 三处改为 `write/`、
-  `search/`，与本地目录逐字符一致；发布树的小写布局仍由 `sync_release.py` 的改写规则产生。
+- **目录名大小写按磁盘实写**：正文与 description 里的 `write/`、`search/` 三处改为 `Write/`、
+  `Search/`，与本地目录逐字符一致；发布树的小写布局仍由 `sync_release.py` 的改写规则产生。
 - **相对路径口径统一**：文中引用一律以技能目录为根。42 处 `../xxx` 写法改写
   （`../scripts/wx_api.py` 15 处、`../materials/` 5 处、`../references/gotchas.md` 4 处、
   `../SKILL.md` 4 处等）。改写后正文与脚本里剩下的 `../` 只有 5 处，全部是
@@ -710,7 +723,7 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
 本轮把此前只写在文档里的验收要求变成脚本内建的强制步骤，并补齐读/搜两条链路的可执行入口。
 
 - **推送侧三处闸口内建（P0）**：
-  - `wx_draft_push.py` 用 importlib 复用 `write/scripts/validate_wx_html.py`，ERROR>0 直接
+  - `wx_draft_push.py` 用 importlib 复用 `Write/scripts/validate_wx_html.py`，ERROR>0 直接
     `ERR PUSH_BLOCKED` 退出，先于取 token——带错正文不再可能进入网络环节。
   - `check_draft.py` 新增 `--source <article.html>`：回读 content 与源文件归一化后逐字比对
     （统一换行、剥 mmbiz 查询参数、去标签间与连续空白），未显式给 `--expect-imgs` 时图数预期
@@ -718,20 +731,20 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   - `wx_api.py` 的 `draft-update` 遇腾讯 WAF 501 自动「回读原封面 → delete → add」绕行，
     成功打印 `MEDIA_ID_CHANGED old=… new=… 请对新 id 重跑 check_draft.py`，失败打印
     `ERR BYPASS_FAILED` 并提示先 `draft-list` 实查；不传 `--cover` 时自动回读原 thumb 避免 40007。
-- **新增 `write/scripts/qa_mobile.py`（渲染层验收）**：Playwright 以 390px 视口渲染，断言
+- **新增 `Write/scripts/qa_mobile.py`（渲染层验收）**：Playwright 以 390px 视口渲染，断言
   `scrollWidth <= 390` 并列出越界元素；用 computed style 枚举 `display:table*`/grid/flex 节点
   （伪表格在窄屏被压缩后 scrollWidth 仍为 390，只看溢出会漏判，故必须查计算样式）；报
   `naturalWidth==0` 破图与整页截图。table/grid 判 FAIL、flex 判 WARN。浏览器 fallback：
   msedge → chrome → Playwright 默认 Chromium。
-- **新增 `search/scripts/search_wechat.py`**（纯标准库 urllib+re）：搜狗 `type=2` 关键词搜文章，
+- **新增 `Search/scripts/search_wechat.py`**（纯标准库 urllib+re）：搜狗 `type=2` 关键词搜文章，
   UA 池轮换 + 首页 cookie 引导，分页上限 10、命中即停；`-n` 先截断再做跳转还原（避免整页还原打光
   `/link` 撞 antispider）；还原覆盖 302 Location、`<meta refresh>`、`url += '…'` 片段拼接三形态；
   命中 antispider/验证码/环境异常标记或被 302 回首页立即停手并打印处置建议。不传 tsn/ft/et（实测被 302）。
-- **新增 `read/scripts/read_wechat.py`**：四层渐进式（Mobile UA → Desktop UA+Cookie → 完整浏览器头 →
+- **新增 `Read/scripts/read_wechat.py`**：四层渐进式（Mobile UA → Desktop UA+Cookie → 完整浏览器头 →
   CDP），`success` 判据为「正文节点存在 + 无验证墙标记 + 字符数 ≥ `--min-chars`（默认 800）」，
   短文需标题/发布时间/正文节点三者齐备才豁免；输出 Markdown + frontmatter；CDP 序列与
-  「响应循环读到 id 匹配」的坑按 `read/references/cdp-edge.md`。`--fixture` 支持离线回归。
-- **新增 `write/scripts/build_blocks.py`**：由小 JSON 产出与 `write/references/theme-default.md` 逐字一致的正文片段，
+  「响应循环读到 id 匹配」的坑按 `Read/references/cdp-edge.md`。`--fixture` 支持离线回归。
+- **新增 `Write/scripts/build_blocks.py`**：由小 JSON 产出与 `Write/references/theme-default.md` 逐字一致的正文片段，
   主题表由此变成机器核对的单一来源（见测试）。
 - **`upload_imgs.py` 限额口径纠正（关键）**：正文图接口 `media/uploadimg` 官方口径是
   「jpg/png、大小必须在 1MB 以下」，10MB 是封面 `material/add_material` 的口径。上传前逐张
@@ -744,9 +757,9 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
 - **`evals/evals.json`**：10 条「用户话术 → 子技能与命令」路由用例（含「改标题重推这篇」走
   `draft-update` 而非 `draft-add`、发布走 check-perm + 后台手动等易错分叉）；
   `tests/test_evals_routes.py` 核对用例引用的路径存在、`--长选项` 在所引脚本里真有声明。
-- **文档结构**：`write/SKILL.md` 拆出 `write/references/writing-discipline.md`（内容侧）与
-  `write/references/wx-html-rules.md`（排版侧），SKILL.md 只留九步工作流主线与闸口顺序；
-  `search/SKILL.md`、`read/SKILL.md` 按实测口径重写（参数表、质量门、降级层、反爬判定）；
+- **文档结构**：`Write/SKILL.md` 拆出 `Write/references/writing-discipline.md`（内容侧）与
+  `Write/references/wx-html-rules.md`（排版侧），SKILL.md 只留九步工作流主线与闸口顺序；
+  `Search/SKILL.md`、`Read/SKILL.md` 按实测口径重写（参数表、质量门、降级层、反爬判定）；
   根 `SKILL.md` description 精简为功能/用途，细则下沉到正文与子技能。
 - **可分发整改**：移除全部外部技能名与私有编号（板块号/文章号/系列品牌），`validate_wx_html.py`
   的许可来源说明改为中性表述（检查项清单参考自一个 AGPL-3.0 许可的外部同类工具，实现独立编写）；
@@ -760,27 +773,27 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
 
 ## 4.2.1（2026-09-28）去 AI 味措施与手段手册 + AI 启发式词表扩充
 
-- **新增 write/references/de-ai-measures.md**（去 AI 味操作手册）：词汇层六类黑名单与改写思路
+- **新增 Write/references/de-ai-measures.md**（去 AI 味操作手册）：词汇层六类黑名单与改写思路
   （空洞评价/权威让步腔/路标总结/万能开头/万能结尾/模型黑话）、句式层十四种 AI 姿势（每条反例→正例）、
   结构层六特征与破解、内容层三类（假具体/假经历/说得比材料大）、检测工具链分层、按动作改写三步与冷读三问。
 - **validate_wx_html.py**：AI_FLAVOR_PHRASES 由 20 词扩充至 50 词（万能开头/结尾、权威腔、路标总结、
   排比式抬价等），仍为 WARNING 级不阻断；py_compile 通过。
-- **write/SKILL.md**：写作纪律第 2 条接入手册引用；根 SKILL.md 不变（check_prose 已在 4.2.0 登记）。
+- **Write/SKILL.md**：写作纪律第 2 条接入手册引用；根 SKILL.md 不变（check_prose 已在 4.2.0 登记）。
 - 词表维护规则（写入手册第七节）：BANNED_WORDS / AI_FLAVOR_PHRASES / check_prose 硬禁词三处更新须同一轮进行。
 
 ## 4.2.0（2026-09-28）新增「活人感写作」非虚构整合参考 + check_prose 散文硬禁令检测
 
-- **新增 write/references/human-writing-nonfiction.md**：整理自 KKKKhazix/human-writing v1.1.0（MIT）
+- **新增 Write/references/human-writing-nonfiction.md**：整理自 KKKKhazix/human-writing v1.1.0（MIT）
   的非虚构写作相关内容——材料门槛（五件材料规则）、说话位置五问、局部问题推进、中文韵律、
   事实边界（reality 精要）、公众号文章体、改稿七遍（revision 精要）、成稿硬禁令完整清单
   （翻案腔动作表/黑话绝对禁词/语境词/抒情词）。虚构规则（fiction.md）未收录。
-- **新增 write/scripts/check_prose.py**（自 human-writing 包 scripts/ 移入）：成稿散文硬禁令检测——
+- **新增 Write/scripts/check_prose.py**（自 human-writing 包 scripts/ 移入）：成稿散文硬禁令检测——
   翻案句（含变形）、黑话、硬停词、模型路标、破折号与提示性冒号；实测识别「不是A而是B」翻案句、
   赋能/商业闭环黑话、说白了/先说结论硬停词。与 validate_wx_html.py 互补（排版红线 vs 模型腔禁令），推送前都跑。
-- **write/SKILL.md**：写作纪律新增第 7 条（散文质感）；推送前校验新增 check_prose 段与检查清单项；
+- **Write/SKILL.md**：写作纪律新增第 7 条（散文质感）；推送前校验新增 check_prose 段与检查清单项；
   「与其他子技能的关系」移除已废弃的 publish 引用，改指后台手动发布。
 - **根 SKILL.md**：辅助脚本清单补 check_prose.py。
-- 原始资料包 write/references/human-writing/ 整合完毕后按要求移除（原仓库 MIT，来源见整合文档头部链接）。
+- 原始资料包 Write/references/human-writing/ 整合完毕后按要求移除（原仓库 MIT，来源见整合文档头部链接）。
 
 ## 4.1.0（2026-09-28）publish 子技能移除 · 发布知识并入母技能 · 排版主题通用化（可外发整改）
 
@@ -792,8 +805,8 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   - references/gotchas.md：保留 A3（48001/53010 接口族实测），删除 F1（发布状态码表，随接口失效）。
 - **脚本清理**：删除 scripts/publish_status.py；wx_api.py 移除 publish/publish-get/publish-list/publish-delete
   四个子命令（保留 check-perm 权限探测）；py_compile 通过。
-- **排版主题通用化**：write/references/theme-fasterp.md 更名 theme-default.md，去除系列品牌表述，
-  改为「通用排版主题（默认主题）」；write/SKILL.md 四处引用同步；materials/gen_cover.py 去系列品牌。
+- **排版主题通用化**：Write/references/theme-fasterp.md 更名 theme-default.md，去除系列品牌表述，
+  改为「通用排版主题（默认主题）」；Write/SKILL.md 四处引用同步；materials/gen_cover.py 去系列品牌。
 - **母 SKILL.md 去个人化**：WECHAT_AUTHOR 示例值改为占位符；「FastERP 系列排版资产/封面生成器」
   表述改为通用表述；版本 4.0.5 -> 4.1.0。
 
@@ -826,11 +839,11 @@ runner 没有 bs4，同一份判据拿降级产物去比 bs4 产物，必红。*
   与 `draft/SKILL.md` 6 处、`materials/SKILL.md` 2 处 `python wx_api.py ...`
   统一为 `python ../scripts/wx_api.py ...`（此前在子技能目录下直接跑
   `wx_api.py` 会因文件不存在而无法执行；根目录/scripts 目录写法不受影响）。
-- **去除外部技能依赖**：read/SKILL.md 原两处引用 browser-automation（含 browser4-cli / playwright-mcp）的连接方法已全部移除；新建 `read/references/cdp-edge.md` 将「读取 DevToolsActivePort 直连 WebSocket」方法搬运为技能内自包含文档（含禁止 Origin 头、帧 masked、 UUID 每次重启变化、HTTP 端点 404、CDP 消息 id 循环匹配等已验证细节）。 全技能外部技能引用扫描归零。
+- **去除外部技能依赖**：Read/SKILL.md 原两处引用 browser-automation（含 browser4-cli / playwright-mcp）的连接方法已全部移除；新建 `Read/references/cdp-edge.md` 将「读取 DevToolsActivePort 直连 WebSocket」方法搬运为技能内自包含文档（含禁止 Origin 头、帧 masked、 UUID 每次重启变化、HTTP 端点 404、CDP 消息 id 循环匹配等已验证细节）。 全技能外部技能引用扫描归零。
 - **wx_api.py**：docstring `publish-delete <publish_id>` 修正为 `<article_id>`
   （官方接口 freepublish/delete 实收 article_id）；注释「gotchas 19」修正为
   「gotchas B5」（gotchas 已重组为 A–G 分组编号）。
-- **read/SKILL.md**：依赖库标注 `beautifulsoup4` 为可选（本机未安装，
+- **Read/SKILL.md**：依赖库标注 `beautifulsoup4` 为可选（本机未安装，
   缺失时降级 html.parser / 纯正则路径，实测降级链有效）；
   确认 browser-automation 技能与 playwright-mcp / Chrome-DevTools-MCP /
   browser4-cli 子技能存在，CDP 引用有效。
@@ -855,7 +868,7 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
   备份；48001 不改台账并说明。
 - `materials/scripts/gen_cover.py` — FastERP 封面生成器入技能：4 种几何图案
   （layers/guard/grid/circuit），`--seed` 缺省随机保证每篇不同，`--size` 可调，纯几何无文字。
-- `write/scripts/check_duplicates.py` — 跨篇重复段落检测：字符 4-gram Jaccard，跨文件相似段落
+- `Write/scripts/check_duplicates.py` — 跨篇重复段落检测：字符 4-gram Jaccard，跨文件相似段落
   报告，`--fail` 可阻断。
 
 ### 修改脚本（3 个）
@@ -865,12 +878,12 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
   - 新增 `check-perm` 子命令（只读探测发布接口权限）。
   - `publish` 必须 `--yes`（不可逆确认，缺省退出码 2）；执行前自动权限预探测
     （48001/53010 直接引导后台手动发布，退出码 3，不提交）。
-- `write/scripts/validate_wx_html.py` — 新增 AI 味启发式（WARNING 级）：空洞修辞短语 22 个、
+- `Write/scripts/validate_wx_html.py` — 新增 AI 味启发式（WARNING 级）：空洞修辞短语 22 个、
   正文感叹号 >3、最长段落 >120 字、段落平均 >80 字、「其一其二其三」「一是二是三是」编号排比；
   单测通过（命中组 7 项 WARN / 对照组零 AI 味误报）。
 - `materials/scripts/upload_imgs.py` — 一次取 token 循环上传全部图片（不再逐张 subprocess 现取）；
   45009 自动退避重试（3s/6s/9s，最多 3 次）；复用 wx_api.py 的 get_token/multipart_upload。
-- `write/scripts/render_mermaid.py` — 浏览器 fallback 链：msedge → chrome → Playwright 默认
+- `Write/scripts/render_mermaid.py` — 浏览器 fallback 链：msedge → chrome → Playwright 默认
   Chromium；全部不可用给出明确报错与 `playwright install chromium` 指引。
 
 ### 文档更新
@@ -879,7 +892,7 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
   主题编号（A1–G1），内容全部保留。
 - 根 `SKILL.md` — version 3.1.0 → 4.0.0；description 补全新能力；辅助脚本清单更新；
   操作前安全习惯第 2 条改为「validate + check_draft 双校验」。
-- `write/SKILL.md` — 校验章节加 AI 味 WARNING 与 check_duplicates；配图规范加 gen_cover.py
+- `Write/SKILL.md` — 校验章节加 AI 味 WARNING 与 check_duplicates；配图规范加 gen_cover.py
   与 mermaid fallback。
 - `materials/SKILL.md` — 加 gen_cover.py 封面生成器、upload_imgs token 复用说明。
 - `draft/SKILL.md` — 回读核验步骤改为 `check_draft.py`；能力表加 check_draft；501 自动绕行说明。
@@ -896,14 +909,14 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
 按用户要求删除 Write 子技能内所有涉及 Markdown 的内容，写作流程改为直接产出 wx 内联版 HTML（不存在 Markdown 中间产物）。
 
 ### 删除文件（4 个）
-- `write/scripts/build_wx.py`（Markdown 母本 → wx 内联版 HTML 转换器）
-- `write/scripts/fix_quotes.py`（Markdown 母本引号全角化）
-- `write/scripts/extract_docx.py`（Word docx → Markdown 提取器）
-- `write/references/format-normalize.md`（素材归一化：万物先转 Markdown）
+- `Write/scripts/build_wx.py`（Markdown 母本 → wx 内联版 HTML 转换器）
+- `Write/scripts/fix_quotes.py`（Markdown 母本引号全角化）
+- `Write/scripts/extract_docx.py`（Word docx → Markdown 提取器）
+- `Write/references/format-normalize.md`（素材归一化：万物先转 Markdown）
 
 ### 修改文档（5 个）
-- `write/SKILL.md`：删除「〇、素材归一化」节与「Markdown 母本 → wx 内联版」节；写作流程改为「直接写 wx 内联版 HTML，图片 URL 一步到位」；description 移除「素材归一化」。
-- `write/references/theme-fasterp.md`：删除「映射规则（Markdown → 组件）」表，保留 HTML 组件库本体。
+- `Write/SKILL.md`：删除「〇、素材归一化」节与「Markdown 母本 → wx 内联版」节；写作流程改为「直接写 wx 内联版 HTML，图片 URL 一步到位」；description 移除「素材归一化」。
+- `Write/references/theme-fasterp.md`：删除「映射规则（Markdown → 组件）」表，保留 HTML 组件库本体。
 - 主 `SKILL.md`：辅助脚本列表移除 build_wx/fix_quotes/extract_docx；Write 行能力描述移除「素材归一化」。
 - `references/gotchas.md`：删除第 15 条「转换器路径」；重编号 16–20 → 15–19；改写 `<div>` WARN 说明与 mmbiz-map 条目中的 build_wx 引用（改为「写作排版按图名查 URL」）；顺带清除 79/80 行历史混入的 / 控制字符。
 - `materials/scripts/upload_imgs.py`：两处注释移除 build_wx 引用。
@@ -970,7 +983,7 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
 ### 修复 1：Markdown 母本转换器缺失（最大缺口）
 - 现象：新板块首次构建时 `build_wx.py`/`fix_quotes.py` 不存在于技能内，只能从板块六 assets 复制；技能文档写着"可先写 Markdown 母本再转 wx 内联版"，但转换器本身不是技能资产，散落各板块。
 - 本质：方法描述与工具资产分离——规范承诺的能力没有对应的可复用实现。
-- 解决：`build_wx.py`（母本 → wx 内联版，theme-fasterp 组件）与 `fix_quotes.py`（正文引号全角化）纳入 `write/scripts/`；`write/SKILL.md` 新增「Markdown 母本 → wx 内联版（转换器，首选路径）」小节与流程第 5 步转换器路径；根 SKILL.md 辅助脚本清单补齐。
+- 解决：`build_wx.py`（母本 → wx 内联版，theme-fasterp 组件）与 `fix_quotes.py`（正文引号全角化）纳入 `Write/scripts/`；`Write/SKILL.md` 新增「Markdown 母本 → wx 内联版（转换器，首选路径）」小节与流程第 5 步转换器路径；根 SKILL.md 辅助脚本清单补齐。
 
 ### 修复 2：装饰线 `<div>` → `<section>`（WARN 清零）
 - 现象：`validate_wx_html.py` 每篇报 1 处 `<div>` WARN，来源是 `build_wx.py` 的 `P_LINE` 装饰线。
@@ -987,7 +1000,7 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
 
 ## 3.0.3（2026-09-17）板块六实战检验修复
 
-> **许可合规说明（AGPL-3.0）**：`write/scripts/extract_docx.py` 逐字移植自
+> **许可合规说明（AGPL-3.0）**：`Write/scripts/extract_docx.py` 逐字移植自
 > gzh-design-skill（AGPL-3.0，作者 甲木 × 摸鱼小李）；`validate_wx_html.py`、
 > `wrap_preview.py`、`format-normalize.md` 借鉴其方法体系。上述文件均已标注
 > 来源与许可。本技能如对外分发，涉及这些文件的部分须遵循 AGPL-3.0 开源。
@@ -1019,9 +1032,9 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
 板块六第 1 篇（0047 复式记账原理）写作与推送全链路实测，发现并修复：
 
 ### 修复 1：`<div>` 标签级别三处矛盾统一
-- 现象：`write/SKILL.md` 红线节与校验说明节仍写「禁止 `<div>`」，而校验器实测 `<div>` 为 WARN（API 推送路径不清洗、板块五已发布文章在用），且 `theme-fasterp.md` 组件 2 装饰线正是 `<div>`——技能内部三处互相矛盾。
+- 现象：`Write/SKILL.md` 红线节与校验说明节仍写「禁止 `<div>`」，而校验器实测 `<div>` 为 WARN（API 推送路径不清洗、板块五已发布文章在用），且 `theme-fasterp.md` 组件 2 装饰线正是 `<div>`——技能内部三处互相矛盾。
 - 本质：规范文本滞后于校验器实现与真实产物。
-- 解决：`write/SKILL.md` 两处、`theme-fasterp.md`「与校验的关系」节统一为「`<div>` WARN 级、能用 `<section>` 用 `<section>`」。
+- 解决：`Write/SKILL.md` 两处、`theme-fasterp.md`「与校验的关系」节统一为「`<div>` WARN 级、能用 `<section>` 用 `<section>`」。
 
 ### 修复 2：`upload_imgs.py` 的 WX 路径指向不存在的文件
 - 现象：批量上传 `FAIL fig6-1-events.png`，而直接调 `scripts/wx_api.py uploadimg` 成功。
@@ -1035,30 +1048,30 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
 ### 身份与结构
 - **frontmatter `name` 由 `wechat-mp-api` 改为 `wechat-article`**，display_name 改为「微信公众号文章（写作·排版·草稿·发布）」——名实相符。
 - 主 SKILL.md 收敛为纯入口：身份、路由、凭据、统一 CLI、公共排障、三条安全习惯；批量发布/状态码/四项后台设置等工作流全部归位到 `publish/`（原本分散在主 SKILL）。
-- 正文 HTML 约束唯一权威定义收敛到 `write/SKILL.md`，`draft/` 与 `references/gotchas.md` 改为引用（消除三处重复维护）。
+- 正文 HTML 约束唯一权威定义收敛到 `Write/SKILL.md`，`draft/` 与 `references/gotchas.md` 改为引用（消除三处重复维护）。
 
 ### 新增能力（借鉴 gzh-design-skill）
-- `write/scripts/validate_wx_html.py` — 确定性合规校验器（API 推送路径版）：禁标签/属性、图片必须 mmbiz 域名、纯 section 片段、禁用词、半角标点；ERROR=0 才可推送。把「推送前检查清单」从模型自觉变为确定性兜底。
+- `Write/scripts/validate_wx_html.py` — 确定性合规校验器（API 推送路径版）：禁标签/属性、图片必须 mmbiz 域名、纯 section 片段、禁用词、半角标点；ERROR=0 才可推送。把「推送前检查清单」从模型自觉变为确定性兜底。
   - **实现要点（实测校准）**：样式红线只检查元素 `style` 属性（代码块文本里的 CSS 示例不算违规——FastERP 文章常展示 `.app{display:grid;var(--rail)}` 这类代码）；`<code>` 标签计入代码区（行内代码的半角符号不误报）；`<div>` 实测 API 推送不清洗、显示正常（板块五已发布文章在用），降为 WARN 并注明编辑器粘贴路径会被改写。
   - 双向验证：0035 mmbiz 版（已推送）→ ERROR=0；0042 旧版（本地路径）→ 检出 3 处图片 ERROR。
-- `write/references/theme-fasterp.md` — FastERP 系列排版资产（从板块五已发布文章 `push_tmp/*-mmbiz.html` 逐条提取，样式与产物逐字一致）：主色深蓝 #1F3864 + 金 #B08D3E，9 个已验证组件 + 映射规则 + 系列约定。装饰线组件按真实产物为 `<div>`（API 路径实测可用）。
-- `write/scripts/wrap_preview.py` — 推送前本地预览页（模拟公众号阅读 + 一键复制）。
-- `write/scripts/extract_docx.py` + `write/references/format-normalize.md` — 素材归一化（docx/pdf/纯文本/网页 → Markdown），移植自 gzh-design-skill（零依赖）。
-- `read/`、`search/` 增加脆弱性标注（外部路径可能随平台改版失效，使用前即时验证）。
+- `Write/references/theme-fasterp.md` — FastERP 系列排版资产（从板块五已发布文章 `push_tmp/*-mmbiz.html` 逐条提取，样式与产物逐字一致）：主色深蓝 #1F3864 + 金 #B08D3E，9 个已验证组件 + 映射规则 + 系列约定。装饰线组件按真实产物为 `<div>`（API 路径实测可用）。
+- `Write/scripts/wrap_preview.py` — 推送前本地预览页（模拟公众号阅读 + 一键复制）。
+- `Write/scripts/extract_docx.py` + `Write/references/format-normalize.md` — 素材归一化（docx/pdf/纯文本/网页 → Markdown），移植自 gzh-design-skill（零依赖）。
+- `Read/`、`Search/` 增加脆弱性标注（外部路径可能随平台改版失效，使用前即时验证）。
 - `git init` + 本 CHANGELOG：技能迭代可追溯。
 
 ### 既有能力保留
-- `scripts/wx_api.py`（13 子命令）、`scripts/wx_draft_push.py`、`materials/scripts/upload_imgs.py`、`write/scripts/render_mermaid.py`。
+- `scripts/wx_api.py`（13 子命令）、`scripts/wx_draft_push.py`、`materials/scripts/upload_imgs.py`、`Write/scripts/render_mermaid.py`。
 - 六子技能路由、凭据安全、发布前四项后台设置、48001 发布权限实测结论。
 
 ## 2.1.1（2026-09-17）
 - 撤销 `Verify/` 子技能（借鉴来源 web-app-function-test 被用户更正为误引用）；路由表回退为 6 子技能。
 
 ## 2.1.0（2026-09-17）
-- 纳入 `wx_draft_push.py` 为简易推送脚本；新增 `write/` 子技能（写作纪律 + wx 内联版 HTML 硬规范）。
+- 纳入 `wx_draft_push.py` 为简易推送脚本；新增 `Write/` 子技能（写作纪律 + wx 内联版 HTML 硬规范）。
 
 ## 2.0.0（2026-09-17）
-- 全面完善：新增 `write/`（首版）、`read/`、`search/` 子技能；publish 状态码全表、48001 实测结论、批量按序发布工作流；gotchas 扩至 13 条；wx_api.py 增加 `--full`/`--source-url`。
+- 全面完善：新增 `Write/`（首版）、`Read/`、`Search/` 子技能；publish 状态码全表、48001 实测结论、批量按序发布工作流；gotchas 扩至 13 条；wx_api.py 增加 `--full`/`--source-url`。
 ## 3.2.0（2026-09-17）板块二实战检验修复
 
 板块二 4 篇（0010/0011/0014/0015）写作推送全链路实测，发现并修复：
@@ -1066,7 +1079,7 @@ gotchas 主题重组 / 跨篇重复检测 / 发布不可逆确认 / 凭据泄露
 ### 修复 1：upload_imgs --map 键为绝对路径，build_wx 匹配失败（本轮最大问题）
 - 现象：0010 首次 validate 报 3 处图片 ERROR（ssets/fig/xxx.png 本地路径未替换为 mmbiz URL）。
 - 本质：两个脚本的键约定不一致——upload_imgs.py 用 os.path.normpath 绝对路径作 map 键（含非 ASCII 时控制台显示乱码），uild_wx.py 匹配逻辑 mmbiz.get(src) or mmbiz.get(os.path.basename(src)) 只认相对路径/basename，绝对路径键永远匹配不上。
-- 解决：upload_imgs.py 写 map 时键统一为 os.path.basename(p)（3.2.0 起新产物直接正确）；旧 map 需重建（basename 键）；write/SKILL.md 转换器段标注 map 键约定；
+- 解决：upload_imgs.py 写 map 时键统一为 os.path.basename(p)（3.2.0 起新产物直接正确）；旧 map 需重建（basename 键）；Write/SKILL.md 转换器段标注 map 键约定；
 eferences/gotchas.md 新增第 17 条。
 - 验证：0010 重建后 ERROR=0；四篇推送后 draft-get 正文 mmbiz 图数 = 配图数（每篇 2 张）。
 
@@ -1121,7 +1134,7 @@ eferences/gotchas.md 新增第 18 条（禁用词替代表达清单，「首先�
 
 0088《系统架构与分层设计》发布后实测发现两个问题，修复并沉淀为技能规则：
 
-- **新增 `<table>` 红线（ERROR 级）**：0088 用 `<table>` 排"四层结构职责表"，微信手机端整表不渲染、表格消失——与 `<pre>` 同类，属微信编辑器不支持标签。`write/scripts/validate_wx_html.py` 的 FORBIDDEN_TAGS 增加 `<table>` 检查；`write/SKILL.md` 原「简单表格用 `<table>`」的错误建议改为**禁止 `<table>`、一律用 div + display:table 伪表格**，并新增可直接套用的「表格模板」小节；`display:flex` 降为 WARN 级（微信部分机型异常，多列优先 display:table-cell）；主 SKILL.md 描述与路由表同步更新。
+- **新增 `<table>` 红线（ERROR 级）**：0088 用 `<table>` 排"四层结构职责表"，微信手机端整表不渲染、表格消失——与 `<pre>` 同类，属微信编辑器不支持标签。`Write/scripts/validate_wx_html.py` 的 FORBIDDEN_TAGS 增加 `<table>` 检查；`Write/SKILL.md` 原「简单表格用 `<table>`」的错误建议改为**禁止 `<table>`、一律用 div + display:table 伪表格**，并新增可直接套用的「表格模板」小节；`display:flex` 降为 WARN 级（微信部分机型异常，多列优先 display:table-cell）；主 SKILL.md 描述与路由表同步更新。
 - **0088 内容补齐（写作文档同步确认）**：0088 标题承诺「关注点分离、高内聚低耦合」但正文 0 处展开——修复版补入三段论证：模块化设计与关注点分离（四层职责的软件工程命名）、业务域维度模块化（fasterp/ 五个服务类）、高内聚与低耦合度量（db.py 数据收敛 + 窄接口单向依赖），素材全部取自 AGENTS.md 原文与仓库目录结构。
 - **0088 修复版重推**：表格转 div 伪表格 + 补内容后，母本已同步更新；解码内联图重传 mmbiz（0088-img-1/2 → mmbiz_map_0088.json）；新草稿 media_id=yEeJgNlLG2-6CUjvfN_kX9wn_4L0LEazsQ6jDoPrrAjQqb6Em2nl4gce21env2WM，check_draft 全 PASS。已发布旧版不可编辑，需删除旧文重新发布。
 
@@ -1130,14 +1143,14 @@ eferences/gotchas.md 新增第 18 条（禁用词替代表达清单，「首先�
 用户质疑「何必两个版本并存」：双版本（base64 存档版 + mmbiz 推送版）源自早期一次「图像全部内联」的历史指令，非写作常态。经确认改为：
 
 - **单版本优先**：正式产物只有一个 mmbiz 推送版（写作时一步到位直接引用 uploadimg URL）；base64 内联版降为「用户明确要求离线归档时才生成」的可选动作，不作双份维护。
-- write/SKILL.md「〇、产物形态」一节重写；存量 base64 存档版保留现状，重新推送时才走「解码→uploadimg→替换」一次性转换。
+- Write/SKILL.md「〇、产物形态」一节重写；存量 base64 存档版保留现状，重新推送时才走「解码→uploadimg→替换」一次性转换。
 
 ## 4.0.4（2026-09-19）div 伪表格红线化，表格改条目卡片
 
 0088 表格问题两次实测打脸，沉淀为规则：
 
 - **问题链条**：`<table>` 微信端整表不渲染（4.0.2 已加 ERROR 红线）→ 改用 div + `display:table` 伪表格 → 微信预览端仍堆叠成纯文本。结论：`display:table/table-cell` 在微信渲染不可靠，div 伪表格不成立。
-- **新规则**：表格一律用「条目卡片」——每条一个 `<section>`（浅灰底 #F7F8FA + 金左边框 #B08D3E + 条目名加粗深蓝 + 说明行灰字），纯块级布局微信 100% 稳定；列多必须保持行列结构的渲染成图片。write/SKILL.md 红线段、表格模板、正文排版、检查清单、主 SKILL.md 路由表全部同步。
+- **新规则**：表格一律用「条目卡片」——每条一个 `<section>`（浅灰底 #F7F8FA + 金左边框 #B08D3E + 条目名加粗深蓝 + 说明行灰字），纯块级布局微信 100% 稳定；列多必须保持行列结构的渲染成图片。Write/SKILL.md 红线段、表格模板、正文排版、检查清单、主 SKILL.md 路由表全部同步。
 - **0088 已修复**：四层职责表替换为 4 张条目卡片，validate ERROR=0，草稿重推（WAF501 自动 delete+add 绕行）。
 
 ## 4.0.5（2026-09-19）全面检验：脚本与文档对齐、伪表格确定性兜底
@@ -1162,7 +1175,7 @@ eferences/gotchas.md 新增第 18 条（禁用词替代表达清单，「首先�
 
 修复：
 
-- `write/SKILL.md` 新增「单文件铁律」，写进 A 轨出口闸、B1 出口闸、B3 静态闸；明确 mmbiz URL 回填后同一份 `article-wx.html` 浏览器直接打开即可看到全部配图。
+- `Write/SKILL.md` 新增「单文件铁律」，写进 A 轨出口闸、B1 出口闸、B3 静态闸；明确 mmbiz URL 回填后同一份 `article-wx.html` 浏览器直接打开即可看到全部配图。
 - `wx-html-redlines.md` 补单文件铁律、删「两个文件」措辞；`image-upload-interfaces.md` 补「回填后本地可见」一节。
 - `wrap_preview.py` 改为默认写系统临时目录、去掉需人工点击的复制按钮，新增 `--figures`：占位态把图临时换成 data URI（只作用于预览副本，绝不写回原文件）。
 - 新增 `check_single_artifact.py`（产物唯一性判据），接入 `acceptance_pack.py` 的 gates —— B4 推送以验收包为唯一前置输入，多一份 wx-HTML 直接 FAIL。纯自动，无人工步骤。
@@ -1186,7 +1199,7 @@ eferences/gotchas.md 新增第 18 条（禁用词替代表达清单，「首先�
     不受 `--no-image-check` 影响；B4 推送以验收包为唯一前置输入，缺兜底直接 FAIL/PENDING。
   - 红线新增「离线可见铁律」：`src` 保持 https mmbiz（微信端），同一份文件内带属性级内嵌兜底
     （本地/离线端）；明确这不是第二份 HTML，删掉「本地预览不走内联」的错误禁令。
-  - 同步 `write/SKILL.md` B1/B3 门禁、`image-upload-interfaces.md`。
+  - 同步 `Write/SKILL.md` B1/B3 门禁、`image-upload-interfaces.md`。
 - **本次稿件复现验证**：修复前用户截图为破图；加兜底后在 `http://127.0.0.1` 环境实测
   在线 14/14 可见、掐断全部外链 14/14 可见、禁用脚本时背景兜底仍在，390px 无横向溢出。
 

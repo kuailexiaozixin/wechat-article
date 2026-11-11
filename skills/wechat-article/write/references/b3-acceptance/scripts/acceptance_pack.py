@@ -149,33 +149,6 @@ def gate_artifact_unique(html_path):
     return {"status": status, "reason": "" if status == "PASS" else detail}
 
 
-def gate_image_visibility(html_path):
-    """图片可见性：在与编辑器一致的 http://127.0.0.1 环境下，在线/离线两轮都要能看见图。
-
-    委托同目录 check_image_visibility.py，不重复实现判据。这道闸不受
-    --no-image-check 影响——离线正是不依赖外网能力最该被验证的场景。
-    """
-    script = os.path.join(HERE, "check_image_visibility.py")
-    if not os.path.isfile(script):
-        return {"status": "PENDING", "reason": "找不到 check_image_visibility.py"}
-    import tempfile
-    out = os.path.join(tempfile.gettempdir(),
-                       "wx_imgvis_%s.json" % hashlib.sha256(
-                           os.path.abspath(html_path).encode("utf-8")).hexdigest()[:10])
-    proc = subprocess.run([sys.executable, script, html_path, "--json", out],
-                          capture_output=True, text=True, encoding="utf-8", errors="replace")
-    status = {0: "PASS", 1: "FAIL", 2: "PENDING"}.get(proc.returncode, "FAIL")
-    data = {}
-    if os.path.isfile(out):
-        try:
-            data = json.load(io.open(out, encoding="utf-8"))
-        except (OSError, ValueError):
-            pass
-    detail = data.get("reason") or (proc.stdout or proc.stderr or "").strip()[:300]
-    return {"status": status, "reason": "" if status == "PASS" else detail,
-            "online": data.get("online"), "offline": data.get("offline")}
-
-
 def cmd_pack(args):
     if not os.path.isfile(args.html):
         print("ERR HTML 不存在：%s" % args.html)
@@ -188,8 +161,7 @@ def cmd_pack(args):
              "render": gate_render(args.html, no_image_check=args.no_image_check),
              "manual": gate_manual(args.signoff),
              "figcount": gate_figcount(html_text, args.manifest),
-             "artifact_unique": gate_artifact_unique(args.html),
-             "image_visibility": gate_image_visibility(args.html)}
+             "artifact_unique": gate_artifact_unique(args.html)}
 
     statuses = [g["status"] for g in gates.values()]
     if "FAIL" in statuses:

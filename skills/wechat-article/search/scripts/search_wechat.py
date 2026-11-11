@@ -7,12 +7,12 @@
                             [--after YYYY-MM-DD] [--before YYYY-MM-DD]
                             [--account 公众号名] [--dump DIR]
 
-行为要点（本机实测结论，维护依据见 search/SKILL.md「搜狗参数与反爬实测」）:
+行为要点（本机实测结论，维护依据见 Search/SKILL.md「搜狗参数与反爬实测」）:
   - 只走 type=2 关键词搜文章；type=1（按公众号名）当前返回空结果容器，不进脚本路径。
     要按公众号取文用 --account：在 type=2 已解析出的账号名上做子串筛，是后置过滤，
     少翻页会漏——筛出 0 条时先看 NOTE 列出的「本次读到过的公众号」。
   - 分页上限 10（page=11 起返回空结果容器）；翻页采用「命中即停」：凑够 -n 或某页 0 条即止。
-  - 参数口径与反爬判定见 search/SKILL.md 第二、四节。
+  - 参数口径与反爬判定见 Search/SKILL.md 第二、四节。
   - 时间过滤走客户端：不传 tsn/ft/et（实测 302 回首页，等于自己把自己拦在结果页外），
     --after/--before 直接按结果页的 timeConvert 时间戳筛。同页时间戳不是严格倒序
     （两例实测：10 条里 4 处与 3 处倒序，单页跨度从 0.3 天到 3.3 年），所以过滤后靠多翻页保证
@@ -33,7 +33,7 @@
   - 单次响应读满 4MB 即停（MAX_BODY_BYTES）并打截断 NOTE。实测正常结果页在几十 KB 量级
     （切片约 3 万字符），到上限说明拿到的不是预期页面；25 秒超时管不住「慢但不断」的响应。
   - 结果页是不可信输入：每条 href 过 safe_link 验域，只接受 https://weixin.sogou.com（无端口）。
-    `//evil.com/x` 这类协议相对链接会被 urljoin 拼成合法外域，直接交给 -r 或 read/ 就是拿本机
+    `//evil.com/x` 这类协议相对链接会被 urljoin 拼成合法外域，直接交给 -r 或 Read/ 就是拿本机
     会话去请求陌生主机；这类条目保留标题与日期、link 置空并落 link_error，且 -r 不为它发请求。
   - 结构哨兵：parse_results 对每条结果页核对 box/h3>a/timeConvert/公众号 四类节点数量，
     数量与条目数背离时打印「结构漂移」NOTE（结果仍交付），改版当天即可从输出看出，不用联网巡检。
@@ -43,7 +43,7 @@
     https://mp.weixin.qq.com（无端口）；`mp.weixin.qq.com.evil.example` 这种子串伪装与外域
     meta refresh 都丢弃不落 resolved，原因写进 resolve_error，条目继续交付搜狗跳转链接。
     还原出的 mp.weixin.qq.com/s?src=11&timestamp=…&signature=… 是当次票据，隔时或换 IP 会失效，
-    技能不重试旧票据：JSON 里落 resolved_at（本机还原时刻），据此判断该重新还原还是直接走 read/。
+    技能不重试旧票据：JSON 里落 resolved_at（本机还原时刻），据此判断该重新还原还是直接走 Read/。
   - 实测：连续请求 /link 会被 302 到 weixin.sogou.com/antispider/。脚本遇拦截类失败
     （antispider、反爬标记、302 回首页、HTTP 403/429/503）立即停止后续还原并打印 NOTE——
     搜索结果本身可用，不要靠重试硬闯。熔断后剩下未发起请求的条目落 resolve_skipped，
@@ -123,7 +123,7 @@ def _url_parts(u):
 
 def safe_link(href):
     """把结果页 href 绝对化并验域。结果页是不可信输入：`//evil.com/x` 会被 urljoin
-    拼成合法的外域链接，交给 -r 或 read/ 就是拿本机会话去请求陌生主机。
+    拼成合法的外域链接，交给 -r 或 Read/ 就是拿本机会话去请求陌生主机。
     只接受 https + weixin.sogou.com 且不带端口，其余返回空串由调用方标注。"""
     if not href:
         return ""
@@ -568,7 +568,7 @@ def advice(window, account):
         return ("处置建议：窗口内没读到。先看上面「观测日期跨度」——翻页没覆盖到该日期"
                 "不等于搜狗没收录，加大 --pages 再试；确认覆盖后再换关键词。")
     return ("处置建议：换关键词或减少 pages；若 NOTE 显示被拦截，"
-            "停止重试，改用已知链接走 read/，或向用户确认来源。")
+            "停止重试，改用已知链接走 Read/，或向用户确认来源。")
 
 
 def main():
