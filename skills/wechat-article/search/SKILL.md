@@ -1,13 +1,44 @@
 ---
 name: search
-description: 按关键词搜索微信公众号文章，返回标题、公众号名、发布时间与真实 mp.weixin.qq.com 链接，可按发布日期用 --after/--before 过滤、按公众号名做后置筛选 --account：走搜狗 weixin.sogou.com 的 type=2 结果页，纯标准库实现，跳转链接三形态还原（302 Location / meta refresh / url 片段拼接），命中反爬立即停手不重试。当用户要求"搜索/查找/定位某篇公众号文章""找写过 xx 的公众号文章""找某段时间的公众号文章""找某公众号发的文章"时使用。按公众号名检索（type=1）实测返回空结果容器，本技能未封装，改用 --account 后置筛；拿到链接后取正文走 Read/。
+description: 按关键词搜索微信公众号文章，返回标题、公众号名、发布时间与真实 mp.weixin.qq.com 链接，可按发布日期用 --after/--before 过滤、按公众号名做后置筛选 --account：双通道，主通道走搜狗 weixin.sogou.com 的 type=2 结果页，另有元宝 so.qq.com 公众号文章频道（结果即永久直链、免跳转还原、无翻页）；两者均纯标准库实现，搜狗跳转链接三形态还原（302 Location / meta refresh / url 片段拼接），命中反爬立即停手不重试。当用户要求"搜索/查找/定位某篇公众号文章""找写过 xx 的公众号文章""找某段时间的公众号文章""找某公众号发的文章"时使用。按公众号名检索（type=1）实测返回空结果容器，本技能未封装，改用 --account 后置筛；拿到链接后取正文走 Read/。
 ---
 
-# 微信公众号文章搜索（搜狗通道）
+# 微信公众号文章搜索（搜狗主通道 + 元宝通道）
 
-微信官方没有开放「搜索公众号文章」的接口，本技能走搜狗微信搜索（`weixin.sogou.com`）这一公开网页入口。
+微信官方没有开放「搜索公众号文章」的接口，本技能默认走搜狗微信搜索（`weixin.sogou.com`）这一公开网页入口；2026-11-11 起另有元宝搜索网站（`so.qq.com`）的公众号频道可选，差异与用法见第零节。两者都只抓公开网页，不调用要 API Key / 额度的 SearchPro 接口。
 
 这一份只给命令、字段、判定与处置；**每个参数口径出自哪个样本、每一格「未判定」缺什么证据**记在 `Search/references/sogou-probe.md`，补测时按那一份的清单走，不要在正文里加样本细节。
+
+## 零、元宝搜索通道（so.qq.com，与搜狗并列的可选来源）
+
+> 2026-11-11 腾讯发布元宝搜索网站 `so.qq.com`，其公众号频道直连微信生态内容（搜狗微信搜索之外的新来源）。
+> 本技能新增 `Search/scripts/yuanbao_search.py` 接入该网站，**不调用要 API Key / 额度的 SearchPro 接口**，只抓公开网页。
+
+**入口与频道**（均为服务端渲染的整页 HTML，标准库 urllib 直接可抓，无需浏览器）：
+- 综合搜索：`https://so.qq.com/isearch?query=<关键词>`
+- **公众号文章（本技能用这个）**：`https://so.qq.com/isearch?tab=weixin_article&query=<关键词>`
+- 其它频道：`tab=weixin_video` 视频号 / `tab=xueshu` 学术 / `tab=media` 主流媒体 / `tab=gov` 政府
+
+**与搜狗通道的本质差异（已实测，2026-11-11）**：
+1. **链接是永久直链**：结果给的是 `http(s)://mp.weixin.qq.com/s?__biz=...&mid=...&idx=...&sn=...&chksm=...#rd`，**直接可交 `Read/` 取正文，无需像搜狗那样 `-r` 还原成临时票据**（搜狗的票据会过期）。`resolved` 字段直接置为该直链，`resolve_via="yuanbao-permanent"`。
+2. **时间显示为相对时间**（如「1天前」「3小时前」「今天」），不是搜狗那种 Unix 时间戳；`--after/--before` 按相对时间折算到抓取时刻，粒度较粗。
+3. **无翻页**：`page=N` 被服务端忽略，每次请求只返回约 10 条（`-n` 给大于 10 也不会多给），不像搜狗可翻到 100 条。`--pages` 只为与搜狗 CLI 形状对齐而保留：给非 1 的值会打 NOTE 明说「已忽略」，仍只抓一页，免得把覆盖不足当成「元宝没收录」。
+4. **反爬**：目前实测无需登录、无验证码；但连续高频请求会触发 `antispider` 拦截页（与搜狗同类标记），命中即停手、不重试，处置同搜狗。
+5. **不做跳转还原**：`-r` 在本通道无意义（链接已是真实地址），保留仅为 CLI 兼容。
+
+**命令**（与搜狗 `search_wechat.py` 同款 CLI，输出字段完全对齐，下游 `Read/` 无感）：
+```bash
+python Search/scripts/yuanbao_search.py "<关键词>"                      # 列表（默认前 10 条）
+python Search/scripts/yuanbao_search.py "<关键词>" -n 20 --pages 2       # 两个实参都接受：-n 不会多给，--pages 忽略并打 NOTE
+python Search/scripts/yuanbao_search.py "<关键词>" --after 2026-09-01    # 相对时间折算过滤
+python Search/scripts/yuanbao_search.py "<关键词>" --account <公众号名>   # 后置筛
+python Search/scripts/yuanbao_search.py "<关键词>" --format json -o res.json
+python Search/scripts/yuanbao_search.py "<关键词>" --fixture page.html   # 离线解析本地页（不联网）
+python Search/scripts/yuanbao_search.py "<关键词>" --dump pages/         # 每次抓到的结果页落盘
+```
+离线解析器测试见 `tests/test_yuanbao_search_parser.py`（样本 `tests/fixtures/yuanbao_weixin_article_sample.html`，来自 2026-11-11 真实返回）。该判据还守一条「文档/代码不漂移」：本节示例里出现的每个长参数，脚本必须真的用 `add_argument` 定义过——曾出现文档写 `--pages 2` 而脚本没定义、实跑直接报 `unrecognized arguments: --pages 2` 的事，加兼容参数后才闭环。
+
+**选用建议**：搜狗免费、无 Key、但反爬频繁；元宝直链更省事（免 `-r`）、无需 Key，但单页仅 10 条且可能限流。两者可任选，或先用搜狗、被拦时换元宝兜底。`Read/` 另有 `--yuanbao`：已知链接四层都读不出正文时，用标题到元宝换永久直链再试一遍（默认关，详见 `Read/SKILL.md` 第零节）。
 
 ## 一、命令
 

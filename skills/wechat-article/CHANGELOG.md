@@ -1,5 +1,29 @@
 # CHANGELOG — wechat-article
 
+## 5.18.0（2026-11-11）引入元宝搜索网站（so.qq.com）：Search/ 加第二通道、Read/ 加换源兜底
+
+**背景**：用户要求把腾讯当天发布的元宝搜索接入 `Read/` 与 `Search/`，并明确「是元宝搜索网站 so.qq.com，不是元宝搜索 API」——不碰需要 API Key 与额度的 SearchPro 接口，只抓公开网页。实测确认四点：
+
+- 公众号文章频道 `https://so.qq.com/isearch?tab=weixin_article&query=<关键词>` 返回服务端渲染的整页 HTML，标准库 `urllib` 直接可抓，无需浏览器（静态资源走 `search.sogoucdn.com`，元宝建在搜狗基础设施上）。
+- 结果里给的就是**永久直链** `mp.weixin.qq.com/s?__biz=…&mid=…&idx=…&sn=…&chksm=…#rd`，与搜狗 `-r` 还原出的临时票据（带 `timestamp`/`signature`、会过期）本质不同，可直接交 `Read/`，不需要还原步骤。
+- 时间显示是相对时间（「1天前」「3小时前」），不是 Unix 时间戳；`page=N` 被服务端忽略，单页约 10 条、无翻页。
+- 高频请求会命中 `antispider` 拦截页，与搜狗同类，命中即停手不重试。
+
+**本版改动**：
+
+- 新增 `Search/scripts/yuanbao_search.py`：纯标准库，CLI 形状与 `search_wechat.py` 对齐，输出字段完全一致（`title`/`account`/`summary`/`timestamp`/`published`/`link`/`resolved`/`resolve_via` 等），`resolved` 直接置为永久直链、`resolve_via="yuanbao-permanent"`，下游 `Read/` 无感。解析不按容器类名切分（Next.js 飞行数据里会重复出现类名，按容器切分实测只出 1 条），改为锚定 `linkid:title` 逐个配对相邻区间里的公众号名与相对时间；相对时间折算成时间戳供 `--after/--before` 用；`safe_mp_link()` 只放行 `mp.weixin.qq.com`。
+- 新增真实页面样本 `tests/fixtures/yuanbao_weixin_article_sample.html`（156675 字节，2026-11-11 `query=微信`）与离线判据 `tests/test_yuanbao_search_parser.py`。
+- `Read/scripts/read_wechat.py`：`read()` 增加 `yuanbao_fallback=False` 形参；四层全失败且拿到标题时，动态加载元宝搜索、取前 3 条永久直链递归重读（递归传 `False` 防回环），命中结果的 `note` 留原标题与原链接、`attempts`/`diag` 合并前后两轮。`main()` 接线 `--yuanbao`，`--fixture` 离线路径不触发。新增 Read 侧独立的 `safe_article_url()` 白名单（换源 URL 属外部不可信输入，不依赖 Search 内部函数）与 `FALLBACK_CANDIDATES=3` 请求量上限。
+- **修复两处集成缺陷**（都是本轮集成过程中由判据逼出来的，不是推测）：
+  1. `read()` 原来在第 4 层 CDP 抛异常时提前 `return`，直接绕过兜底逻辑——本机未开 Edge 调试端口恰恰是最常见的失败前提，`--yuanbao` 会完全失效。改为只记诊断、继续走统一失败出口。
+  2. `Search/SKILL.md` 元宝示例写了 `--pages 2`，而脚本没定义该参数，实跑 argparse 直接报 `unrecognized arguments`。补上兼容参数并打 NOTE 明说「已忽略」，避免把覆盖不足当成「元宝没收录」。
+- 文档：`Search/SKILL.md` 新增「零、元宝搜索通道」节（入口/频道、与搜狗的五点差异、命令、选用建议），标题与路由描述改为双通道；`Read/SKILL.md` 新增「零、元宝换源兜底」节（触发条件、三道约束、请求量、失败处置、可能换到同题不同文的风险）；根 `SKILL.md` 路由表改双通道、跨目录依赖补第 6 条软依赖、把落后的版本号对齐到 5.18.0。
+- 测试约定修正：`tests/test_yuanbao_search_parser.py` 改为暴露 `run()`（原先只有 `main()`，会被 `run_all.py` 判「缺 run()」报红），并加「文档示例里的长参数脚本必须真的定义」的漂移守卫（只扫代码块，避免散文里提到的别子技能参数误报）。新增 `tests/test_read_yuanbao_fallback.py`：注入假元宝模块、替换四个取页层，全程零网络，覆盖默认关闭、CDP 异常仍兜底、命中合并、不回环、搜索异常回退、恶意链接丢弃七个方向。
+
+**验证**：`python tests/run_all.py` 全量 **13 个判据文件通过 13 · 跳过 0 · 失败 0**；新增两文件单跑分别 41 项与 45 项全绿；`py_compile` 四个改动脚本通过。CLI 烟测：`yuanbao_search.py --help` 列出 `--pages`，`--fixture + -n 20 --pages 2` 退出码 0、出 10 条且 stderr 打「已忽略」NOTE，`--format json` 得 `count=10`；`read_wechat.py --help` 列出 `--yuanbao`，`--fixture` 正常出 frontmatter + 1346 字正文，`--fixture + --yuanbao` 打「已忽略」且全程不联网；`frontmatter()` 对含 `&` 与 URL 的换源 note 不炸。
+
+**已知限制**：元宝按标题搜同款可能命中转载、改写或同题不同文，`--yuanbao` 因此默认关并要求核对 `source_url` 与 `note`；元宝 `antispider` 限流、相对时间折算粒度粗、单页约 10 条无翻页，均未绕过。真实联网回归只验证过 `query=微信` 成功、`query=大模型` 命中拦截后按纪律停手，冷却时长未实测。
+
 ## 5.17.0（2026-11-10）取消「离线可见性」强制要求：图片不再内嵌 base64 兜底
 
 **背景**：用户对照既有文章发现历史成稿全是纯 mmbiz 链接（约 32KB），而「离线可见铁律」要求的 `data-fallback`/`onerror`/`background-image` base64 兜底会把稿件撑到 8–10MB，且实测无效——微信图床防盗链在 `file://` 打开时返回的是 HTTP 200 占位图（「未经允许不可引用」），`onerror` 不触发，兜底永远不生效。本地看不到真图属预期行为，真图以公众号后台/编辑器预览为准。

@@ -1,7 +1,7 @@
 ---
 name: wechat-article
-description: '微信公众号文章全链路技能（parent）：封装微信公众平台开放接口与公众号写作/排版方法论，按子技能路由——Write/ 负责研究性专业文章的写作与微信兼容 HTML 排版（A 轨道：立判断 → 定结构 → 备材料 → 成文，进入 B1 前必须把文章整理为符合 wx-HTML 规范的 HTML 文档；B 轨道：B1 配图 → B2 排版核对 → B3 验收 → B4 推送 → B5 回读）、Read/ 读取已有文章正文、Search/ 按关键词搜索公众号文章。写作规范与方法论详见 Write/ 子技能及其 references/ 目录。发布接口族对个人未认证账号无权限，发布走公众号后台手动。用户要写/排版/推送/管理草稿、读取或搜索公众号文章时使用。'
-version: 5.16.3
+description: '微信公众号文章全链路技能（parent）：封装微信公众平台开放接口与公众号写作/排版方法论，按子技能路由——Write/ 负责研究性专业文章的写作与微信兼容 HTML 排版（A 轨道：立判断 → 定结构 → 备材料 → 成文，进入 B1 前必须把文章整理为符合 wx-HTML 规范的 HTML 文档；B 轨道：B1 配图 → B2 排版核对 → B3 验收 → B4 推送 → B5 回读）、Read/ 读取已有文章正文（四层失败可选用元宝换源兜底）、Search/ 按关键词搜索公众号文章（搜狗 / 元宝双通道）。写作规范与方法论详见 Write/ 子技能及其 references/ 目录。发布接口族对个人未认证账号无权限，发布走公众号后台手动。用户要写/排版/推送/管理草稿、读取或搜索公众号文章时使用。'
+version: 5.18.0
 ---
 
 # 微信公众号文章（wechat-article）
@@ -15,12 +15,12 @@ version: 5.16.3
 | 用户需求 | 子技能 | 该子技能负责的一件事 |
 |---|---|---|
 | **写**文章、做 wx 内联版排版、传图、推送草稿箱、回读核验 | `Write/` | A 轨道（立判断 → 定结构 → 备材料 → 成文，出口是把文章整理为符合 wx-HTML 规范的 HTML 文档），再走 B1 配图上传 → B2 排版核对 → B3 验收（三子闸合一）→ B4 推送 → B5 回读 |
-| **读取**某篇已知链接的文章 | `Read/` | 取正文与元信息转 Markdown |
-| 按关键词**搜索**文章 | `Search/` | 搜狗 `type=2` 检索与跳转还原 |
+| **读取**某篇已知链接的文章 | `Read/` | 四层降级取正文与元信息转 Markdown；四层全失败可选 `--yuanbao` 换源兜底 |
+| 按关键词**搜索**文章 | `Search/` | 双通道：搜狗 `type=2` 检索与跳转还原 / 元宝 `so.qq.com` 公众号频道（永久直链，免还原） |
 
 每行的能力细则、命令、参数与验收判据只在对应子技能正文里写一份；本表不重复展开。
 
-**跨目录依赖（改名或删文件前先查这四条边）**：
+**跨目录依赖（改名或删文件前先查这几条边）**：
 1. `scripts/wx_draft_push.py` 的推送闸口加载 `Write/references/b3-acceptance/scripts/validate_wx_html.py`
    的 `validate()`（复用，不重复实现；找不到该文件即报错退出，不静默跳过推送闸）。
 2. `Write/references/b2-typeset/theme-default.md`（位于 b2-typeset 目录内）是
@@ -35,6 +35,10 @@ version: 5.16.3
 5. B 轨五阶段的哈希链：B3 验收包冻结 `html_sha256` → B4 推送核验并写进 push.json →
    B5 回读用它与当前源文件比对（「改了没重推」的判定基准）。改任何一环的哈希口径，
    三处必须同轮改。
+6. `Read/scripts/read_wechat.py` 的 `--yuanbao` 兜底在运行期把 `Search/scripts/` 插进
+   `sys.path` 后 `import yuanbao_search`，属于**软依赖**：该文件缺失或导入失败时不崩，
+   只把原因写进诊断并回退原失败结论（不静默假装成功）。搬动或改名
+   `Search/scripts/yuanbao_search.py` 会断掉这条兜底，判据在 `tests/test_read_yuanbao_fallback.py`。
 
 `Write/references/` 一改，推送闸与上述判据同时受影响，不是只影响写作侧——路径类断链由
 `tests/test_evals_routes.py` 的「路径引用大小写核对」守：引用与磁盘目录名逐字符不符即报红。

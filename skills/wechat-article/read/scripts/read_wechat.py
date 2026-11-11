@@ -3,12 +3,18 @@
 
 用法:
     python read_wechat.py <文章URL> [-o out.md] [--json] [--min-chars 800]
-                          [--no-cdp] [--layer 1|2|3|4] [--timeout 25]
+                          [--no-cdp] [--layer 1|2|3|4] [--timeout 25] [--yuanbao]
     python read_wechat.py <URL> --fixture saved.html   # 离线解析，不联网（回归测试）
 
 四层渐进（逐层降级，以「非空正文」为唯一成功判据）:
     1 Mobile UA 直连        2 Desktop UA + Cookie Session
     3 完整浏览器 Headers    4 CDP 本机 Edge（验证墙场景，连接细节见 Read/references/cdp-edge.md）
+
+四层之外还可选「元宝换源兜底」(--yuanbao，默认关)：四层全失败但页面给过标题时，
+拿标题去元宝搜索（so.qq.com 公众号频道）换一批永久直链，逐个重试取正文。
+它只在顶层调用触发（递归传 yuanbao_fallback=False，不回环），换源链接一律过
+mp.weixin.qq.com 主机白名单——那批 URL 来自外部结果页，属不可信输入。
+单次最多试 3 个候选，每候选仍受原有四层/每层重试上限约束，不额外撞墙。
 
 质量门（判成功的硬条件，缺任一项即判该层失败继续降级）:
     - 正文节点存在（#js_content / .rich_media_content）
@@ -28,6 +34,7 @@ bs4+lxml（正文结构化）→ 标准库 HTMLParser（退化取文本，标注
 requests 缺失自动用 urllib；第 4 层需要 websocket-client（缺失则明确报不可用，不静默跳过）。
 """
 import argparse
+import html as html_mod
 import json
 import os
 import re
@@ -46,6 +53,27 @@ MOBILE_UA = ("Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 "
              "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
 DESKTOP_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+
+# 换源兜底拿到的 URL 来自外部搜索结果页，属不可信输入：只放行 mp.weixin.qq.com。
+# 这道门在 Read 侧独立实现，不依赖 Search/ 的内部函数——那边改版不能把本脚本的请求目标带歪。
+FALLBACK_MP_HOSTS = ("mp.weixin.qq.com",)
+FALLBACK_CANDIDATES = 3          # 换源最多试几个候选，避免把一次失败放大成连环请求
+
+
+def safe_article_url(raw):
+    """白名单校验：非 http(s)://mp.weixin.qq.com（无端口）一律置空。"""
+    u = (raw or "").strip()
+    if not u:
+        return ""
+    try:
+        parts = urllib.parse.urlsplit(u)
+    except ValueError:               # 主机位置出现不配对的 [ 时 urlsplit 会抛
+        return ""
+    if (parts.scheme not in ("http", "https")
+            or parts.hostname not in FALLBACK_MP_HOSTS
+            or parts.port is not None):
+        return ""
+    return u
 
 
 def _decode(raw, content_type=""):
@@ -356,8 +384,9 @@ def frontmatter(meta, layer, chars, note):
     return "\n".join(lines)
 
 
-def read(url, min_chars=MIN_FULLTEXT_CHARS, use_cdp=True, max_layer=4, timeout=25):
-    attempts, diag = [], []
+def read(url, min_chars=MIN_FULLTEXT_CHARS, use_cdp=True, max_layer=4, timeout=25,
+         yuanbao_fallback=False):
+    attempts, diag, last_meta = [], [], {}
     layers = [("1-mobile-ua", layer1), ("2-desktop-session", layer2),
               ("3-full-headers", layer3)]
     for i, (name, fn) in enumerate(layers, 1):
@@ -370,6 +399,7 @@ def read(url, min_chars=MIN_FULLTEXT_CHARS, use_cdp=True, max_layer=4, timeout=2
             continue
         attempts.append("%s: %d 字符页" % (name, len(resp["html"])))
         meta = parse_meta(resp["html"], url)
+        last_meta = meta
         content_html, mode = extract_content(resp["html"])
         ok, reason, chars = judge(meta, content_html, mode, min_chars)
         if ok:
@@ -382,21 +412,64 @@ def read(url, min_chars=MIN_FULLTEXT_CHARS, use_cdp=True, max_layer=4, timeout=2
         try:
             resp = cdp_get_html(url, timeout=timeout)
         except Exception as e:
+            # 不在这里 return：CDP 不可用是最常见的失败前提（本机没开 Edge 调试端口），
+            # 提前返回会绕过下面的统一失败出口，连带把元宝换源兜底一并跳过。
             diag.append("[4-cdp] 不可用：%s" % e)
-            return {"ok": False, "layer": "4-cdp", "attempts": attempts, "diag": diag,
-                    "markdown": "", "note": "CDP 层失败"}
-        attempts.append("4-cdp: %d 字符页 (readyState=%s)" % (len(resp["html"]),
-                                                              resp.get("ready_state")))
-        meta = parse_meta(resp["html"], url)
-        content_html, mode = extract_content(resp["html"])
-        ok, reason, chars = judge(meta, content_html, mode, min_chars)
-        if ok:
-            return {"ok": True, "meta": meta, "layer": "4-cdp", "parse_mode": mode,
-                    "chars": chars, "note": reason, "markdown": html_to_md(content_html),
-                    "attempts": attempts, "diag": diag}
-        diag.append("[4-cdp] 未过质量门：%s" % reason)
-    return {"ok": False, "layer": None, "attempts": attempts, "diag": diag,
+            resp = None
+        if resp is not None:
+            attempts.append("4-cdp: %d 字符页 (readyState=%s)" % (len(resp["html"]),
+                                                                  resp.get("ready_state")))
+            meta = parse_meta(resp["html"], url)
+            last_meta = meta
+            content_html, mode = extract_content(resp["html"])
+            ok, reason, chars = judge(meta, content_html, mode, min_chars)
+            if ok:
+                return {"ok": True, "meta": meta, "layer": "4-cdp", "parse_mode": mode,
+                        "chars": chars, "note": reason, "markdown": html_to_md(content_html),
+                        "attempts": attempts, "diag": diag}
+            diag.append("[4-cdp] 未过质量门：%s" % reason)
+    fail = {"ok": False, "layer": None, "attempts": attempts, "diag": diag,
             "markdown": "", "note": "四层均未取到合格正文"}
+    # —— 元宝换源兜底：四层全失败且拿到标题时，去元宝搜同款拿永久直链再试一遍 ——
+    # 仅顶层调用触发（递归调用传 yuanbao_fallback=False，避免回环）；默认关闭。
+    if yuanbao_fallback and last_meta.get("title"):
+        # 标题取自页面 og:title，可能带 &amp; 这类实体，搜索前还原成正常文字。
+        title = html_mod.unescape(last_meta["title"]).strip()
+        if not title:
+            diag.append("[yuanbao] 标题还原后为空，跳过换源")
+            return fail
+        diag.append("[yuanbao] 四层失败，尝试用标题「%s」去元宝搜索换源" % title)
+        try:
+            yb_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   "..", "..", "Search", "scripts")
+            if yb_path not in sys.path:
+                sys.path.insert(0, yb_path)
+            import yuanbao_search as yb
+            items, yb_notes = yb.search(title, want=FALLBACK_CANDIDATES)
+            for n in (yb_notes or []):
+                diag.append("[yuanbao] %s" % n)
+        except Exception as e:
+            diag.append("[yuanbao] 换源搜索异常：%s（回到原失败结论）" % e)
+            return fail
+        for rank, it in enumerate(items[:FALLBACK_CANDIDATES], 1):
+            raw = it.get("resolved") or it.get("link")
+            link = safe_article_url(raw)
+            if not link:
+                diag.append("[yuanbao] 候选 %d 链接非 mp.weixin.qq.com，已丢弃：%s"
+                            % (rank, (raw or "")[:80]))
+                continue
+            diag.append("[yuanbao] 候选 %d：%s" % (rank, link))
+            r2 = read(link, min_chars, use_cdp, max_layer, timeout,
+                      yuanbao_fallback=False)
+            if r2["ok"]:
+                r2["note"] = (r2.get("note") or "") + \
+                    "（元宝换源命中：标题「%s」，原链接 %s → %s）" % (title, url, link)
+                r2["attempts"] = attempts + r2.get("attempts", [])
+                r2["diag"] = diag + r2.get("diag", [])
+                return r2
+            diag.append("[yuanbao] 候选 %d 仍未取到正文" % rank)
+        diag.append("[yuanbao] 候选均未能取到正文，回到原失败结论")
+    return fail
 
 
 def read_from_html(html, url, min_chars=MIN_FULLTEXT_CHARS):
@@ -423,14 +496,19 @@ def main():
     ap.add_argument("--layer", type=int, choices=(1, 2, 3, 4), default=4,
                     help="最多降到第几层（默认 4）")
     ap.add_argument("--timeout", type=int, default=25)
+    ap.add_argument("--yuanbao", action="store_true",
+                    help="四层失败时用标题去元宝搜索（so.qq.com 公众号频道）换源兜底，默认关")
     ap.add_argument("--fixture", help="离线解析本地已保存的文章页（不联网，回归测试用）")
     args = ap.parse_args()
 
     if args.fixture:
+        if args.yuanbao:
+            print("NOTE --fixture 是离线解析，不联网，--yuanbao 已忽略", file=sys.stderr)
         with open(args.fixture, encoding="utf-8", errors="replace") as f:
             r = read_from_html(f.read(), args.url, args.min_chars)
     else:
-        r = read(args.url, args.min_chars, not args.no_cdp, args.layer, args.timeout)
+        r = read(args.url, args.min_chars, not args.no_cdp, args.layer, args.timeout,
+                 yuanbao_fallback=args.yuanbao)
     if r["ok"]:
         doc = frontmatter(r["meta"], r["layer"], r["chars"], r["note"]) + \
             "# %s\n\n%s" % (r["meta"]["title"] or "(无标题)", r["markdown"])
@@ -458,7 +536,8 @@ def main():
                   file=sys.stderr)
         else:
             print("FAIL 四层均未取到合格正文——按 Read/references/cdp-edge.md 确认 Edge 调试端口，"
-                  "或改用 Search/ 换来源；勿对本 URL 继续重试。", file=sys.stderr)
+                  "或加 --yuanbao 用标题去元宝换源、或改用 Search/ 换来源；勿对本 URL 继续重试。",
+                  file=sys.stderr)
     sys.exit(0 if r["ok"] else 1)
 
 

@@ -1,9 +1,35 @@
 ---
 name: read
-description: 从已知的 mp.weixin.qq.com 链接提取公众号文章正文与元信息并转 Markdown：四层降级取页（Mobile UA → Desktop UA+Cookie → 完整浏览器头 → 本机 Edge CDP）、验证墙判定、正文完整性质量门。当用户要求"读取/提取/解析某篇公众号文章正文""这篇写了什么"时使用。只有关键词没有链接时先走 Search/。
+description: 从已知的 mp.weixin.qq.com 链接提取公众号文章正文与元信息并转 Markdown：四层降级取页（Mobile UA → Desktop UA+Cookie → 完整浏览器头 → 本机 Edge CDP）、验证墙判定、正文完整性质量门；四层全失败时可选 --yuanbao 用标题去元宝搜索换源兜底。当用户要求"读取/提取/解析某篇公众号文章正文""这篇写了什么"时使用。只有关键词没有链接时先走 Search/。
 ---
 
 # 微信公众号文章读取（Read）
+
+## 零、元宝换源兜底（--yuanbao，可选，默认关）
+
+四层都取不到合格正文、但页面至少给过标题时，可以拿这个标题去元宝搜索（`so.qq.com` 公众号文章频道）找同款，换成能直接读的链接再试一遍。
+
+```bash
+python Read/scripts/read_wechat.py "<原链接>" --yuanbao
+```
+
+**触发条件（三个同时满足，缺一不做）**：显式传了 `--yuanbao`；四层全部未过质量门；失败页里解析到了标题（`og:title` 或 `h1#activity-name`）。标题里的 `&amp;` 这类实体会先还原成正常文字再拿去搜。
+
+**为什么这条路走得通**：`Search/scripts/yuanbao_search.py` 从元宝结果页拿到的就是**永久直链** `mp.weixin.qq.com/s?__biz=…&mid=…&idx=…&sn=…&chksm=…#rd`，不像搜狗 `-r` 还原出来的是带 `timestamp`/`signature` 的临时票据（会过期）。所以换源链接能直接喂给本脚本，不需要还原步骤。
+
+**脚本实际做的事**：搜一次，取前 3 条（`FALLBACK_CANDIDATES`），逐个用同一套四层 + 同一套质量门重读；第一个读到合格正文的就返回。命中结果的 `source_url` 是**换源后的真实链接**，`note` 里写明标题、原链接与新链接，`attempts`/`diag` 把前后两轮合并，看得出是从哪里换过来的。
+
+**三道约束（改代码时别拆）**：
+
+1. **不回环**：递归调用固定传 `yuanbao_fallback=False`，元宝只搜一次，候选再失败也不会继续搜下去。
+2. **链接白名单**：换源 URL 来自外部结果页，属不可信输入。`safe_article_url()` 只放行 `http(s)://mp.weixin.qq.com`（无端口）；外域、`mp.weixin.qq.com.evil.example` 这种子串伪装、带端口、非法 IPv6 一律丢弃，**不发任何请求**，并在诊断里写明。这道门在 Read 侧独立实现，不依赖 Search 内部函数。
+3. **请求量不放大**：原四层最多 6 次 HTTP（`LAYER_TRIES=2` × 3 层）+ 元宝搜索最多 2 次 + 最多 3 个候选各走一遍同样的四层（各最多 6 次 HTTP）。全程串行、不并发、不破解验证码，命中元宝 `antispider` 时就此停手。
+
+**默认关的理由**：会额外访问一个外部站点；而且按标题搜同款**可能命中转载、改写或同题不同文**，不是百分百换回原文。调用方应当知情并核对 `source_url` 与 `note`。因此它只在显式加 `--yuanbao` 时启用，`--fixture` 离线解析路径永不触发（会打 NOTE 说明已忽略，全程不联网）。
+
+**失败时怎么办**：元宝返回空、被拦、解析异常，或 3 个候选都没取到正文 → 干净回到原来的失败结论，退出码 1，诊断里逐条写明原因。**不要对同一个原链接反复重跑**：反复请求会加深风控。此时改走 `Search/` 用标题 + 公众号名人工确认来源，或按 `Read/references/cdp-edge.md` 把 Edge 调试端口配好再读。
+
+判据见 `tests/test_read_yuanbao_fallback.py`（纯离线，注入假元宝模块，覆盖默认关闭、CDP 异常仍兜底、不回环、恶意链接丢弃等方向）。
 
 ## 一、命令
 
@@ -14,6 +40,7 @@ python Read/scripts/read_wechat.py "<链接>" --json                        # �
 python Read/scripts/read_wechat.py "<链接>" --no-cdp                      # 只用 HTTP 三层，不起浏览器
 python Read/scripts/read_wechat.py "<链接>" --layer 2                     # 最多降到第 2 层
 python Read/scripts/read_wechat.py "<链接>" --min-chars 1200              # 收紧正文长度阈值
+python Read/scripts/read_wechat.py "<链接>" --yuanbao                     # 四层失败时用标题去元宝换源兜底（见第零节）
 python Read/scripts/read_wechat.py x --fixture saved.html                 # 离线解析本地存下的页面
 ```
 
@@ -71,5 +98,7 @@ python Read/scripts/read_wechat.py x --fixture saved.html                 # 离�
 ## 七、与其他子技能的关系
 
 需要先**发现/定位**文章（只有主题、没有链接）时走同级 `Search/`；搜到的跳转链接由 `Search/scripts/search_wechat.py -r` 还原成 `mp.weixin.qq.com` 链接后再交给本脚本。搜到的真实链接带签名时效，拿到就立即读取，不要存档 URL 待用。
+
+`Search/` 有两条通道：搜狗（`search_wechat.py`，跳转链接要 `-r` 还原成临时票据）与元宝（`yuanbao_search.py`，结果即永久直链、无需还原）。本脚本第零节的 `--yuanbao` 兜底走的是后者，运行期动态加载 `Search/scripts/yuanbao_search.py`——**这是一条跨子技能软依赖**：该文件缺失或导入失败时不会崩，只把原因写进诊断并回到原失败结论（不静默假装成功）。搬动或改名那个文件前先查这条边，判据在 `tests/test_read_yuanbao_fallback.py` 的「搜索抛异常」方向。
 
 内容仅供合规阅读与研究，遵守原文版权。
