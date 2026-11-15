@@ -15,8 +15,10 @@
   - content 中 mmbiz.qpic.cn 图片数 == --expect-imgs（给定 N 时）
   - 正文一致比（给定 --source 时）：回读 content 与本地源 HTML 归一化后逐字相等；
     未给 --expect-imgs 时图数预期直接从源文件 mmbiz 计数得出。
-    归一化 = 统一换行、剥离 mmbiz URL 查询参数、去除标签间空白与连续空白。
-    API 推送路径实测微信不清洗正文，不相等即「推的不是这份文件」。
+    归一化 = 统一换行、剥离 mmbiz URL 查询参数、img 标签归一（抵消微信把 src 改成
+    data-src、重排属性、URL 尾缀 /0→/640 的标准化改写）、去除标签间空白与连续空白。
+    微信端会确定性改写 <img> 属性，属平台标准化、不代表正文丢失；其余正文实测不被清洗，
+    归一化后仍不相等即「推的不是这份文件」。
 
 输出: 逐项 [PASS]/[FAIL] + 摘要行；--json 输出结构化结果。
 退出码: 0 = 全部 PASS; 1 = 有 FAIL（必须修复后重推）。
@@ -47,10 +49,34 @@ def char_len(s):
     return len(s)
 
 
+def _canon_img(m):
+    """把 <img> 标签归一到稳定形态，抵消微信草稿接口的确定性标准化改写：
+       - data-src 与 src 等价（微信把 src 改名成 data-src）
+       - 属性顺序无关（微信会重排属性，例如把 alt 提前）
+       - mmbiz URL 的规格后缀 /0 /640 等价（微信按展示规格重写尾缀）
+       - 属性值统一用双引号
+    图片主体 URL、alt、style 均不动，只规范上述平台改写点。
+    """
+    tag = m.group(0)
+    attrs = re.findall(r"""([\w-]+)\s*=\s*(["'])(.*?)\2""", tag, re.I)
+    pairs = []
+    for name, _q, val in attrs:
+        name = name.lower()
+        if name == "data-src":
+            name = "src"
+        if name == "src":
+            val = re.sub(r"\?[^\s\"']*$", "", val)   # 去查询参数
+            val = re.sub(r"/\d+$", "", val)           # 去规格后缀 /0 /640
+        pairs.append((name, val))
+    pairs.sort()
+    return "<img " + " ".join('%s="%s"' % (k, v) for k, v in pairs) + ">"
+
+
 def norm_html(s):
-    """正文一致比用的归一化：换行统一、mmbiz URL 去查询参数、空白折叠。"""
+    """正文一致比用的归一化：换行统一、mmbiz URL 去查询参数、img 标签归一（抵消微信改写）、空白折叠。"""
     s = s.replace("\r\n", "\n").replace("\r", "\n")
     s = re.sub(r"""(mmbiz\.qpic\.cn/[^"'\s>]+?)\?[^\s"'<>]*""", r"\1", s)
+    s = re.sub(r"<img\b[^>]*>", _canon_img, s, flags=re.I)
     s = re.sub(r">\s+<", "><", s)
     s = re.sub(r"\s+", " ", s)
     return s.strip()

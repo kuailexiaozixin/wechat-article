@@ -1,5 +1,66 @@
 # CHANGELOG — wechat-article
 
+## 5.19.0（2026-11-15）收口 B5 图片归一化修复：补判据、纠正文档、对齐版本
+
+**背景**：第二篇公众号文章交付（11 张正文图）时，`check_draft.py --source` 在归一化位置
+1768 报「正文与源不一致」，但草稿与源文件肉眼一致。查到根因是微信草稿接口对 `<img>`
+做平台标准化：`src` 改名 `data-src`、属性重排、规格尾缀 `/0` 改 `/640`、查询参数被去掉。
+当时只改了 `scripts/check_draft.py` 的 `norm_html()`，改动一直挂在工作区（`git status` 显示
+单个 M），没有回归判据、没有同步文档、没有版本记录——判据改了却没证明它仍然有效，
+这是比误报本身更危险的状态。本版把这一处补齐。
+
+**本版改动**：
+
+- `scripts/check_draft.py`：保留已修的 `_canon_img()` 与 `norm_html()`，docstring 明确
+  归一化只放宽四个平台改写点；图片主体地址、`alt`、`style` 不放宽。**本版未再改判定逻辑**。
+- 新增 `tests/test_wx_normalization.py`：离线、零凭据、零网络。正例覆盖 `src`↔`data-src`、
+  属性重排与单双引号、规格尾缀、查询参数、空白与换行；反例覆盖正文改字、图片主体换掉、
+  站外域名、多图少图、图片说明改字、样式改值、标签结构变化、畸形双属性标签、段落被删；
+  另有 `check()` 端到端打桩，把行为锁在真实调用链上而不是只测一个函数。
+- `Write/references/b5-readback/readback-verification.md`：纠正「微信不清洗正文，不相等即
+  推的不是这份文件」这句被实测推翻的结论，补写归一化边界与本次实测记录。
+- `references/gotchas.md` 新增 C4：四类图片确定性改写、根因、修复位置、排障顺序；
+  错误码与失效模式仍只在这一份清单里维护，B5 文档只指向它，不复制一份口径。
+- 根 `SKILL.md` 版本号对齐 5.19.0。
+
+**经核实后没有做的事（避免为改而改）**：
+
+- 没有抽 `scripts/wx_normalize.py` 公共模块。逐文件核实发现
+  `Write/references/b5-readback/scripts/readback_check.py` 本来就通过子进程委托
+  `scripts/check_draft.py --json`，回读判据的规则源已经只有一份；再抽一层模块只会
+  给 B1/B4/B5 的上溯定位增加新的断链点，收益为负。
+- 没有改动 `validate_wx_html.py`、`figure_manifest.py`、`wx_api.py` 的判定逻辑，
+  也没有改「人工签字」子闸。本版只做修复收口，把改动面压到最小。
+
+**验证（修复前 / 修复后各跑一轮）**：
+
+- 修复前基线：`python tests/run_all.py` → 判据文件 13 个，通过 13、跳过 0、失败 0。
+- 新旧对照：用 `git show HEAD:scripts/check_draft.py` 取修复前旧版与当前版同时加载，
+  同一份样本旧版判不等、新版判相等；两版对「正文改一个字」都仍判不等。
+- 变异检验：把 `_canon_img` 换成过宽实现（把整张图归一成固定串）后，图片主体差异
+  确会被吞掉，证明本版反例能抓到「把校验修宽成摆设」这类退化。
+- 修复后全量：`python tests/run_all.py` → 判据文件 14 个，通过 14、跳过 0、失败 0；
+  新增判据单跑三项全绿。
+- 线上回读本轮**未执行**，如实记一笔：按 gotchas B6 先 `draft-count` + `draft-list`
+  只读实查，返回 `total_count: 0`，第二篇草稿已不在，`push.json` 里的 media_id 回读报
+  40007。因此本轮不声称做过线上 B5 核验；验证结论只来自上述离线判据与新旧版本对照。
+- 修复前基线核实（当时唯一改动是 `check_draft.py`）：本地 79 个受版本控制文件按
+  `Read/Search/Write`→小写并加 `skills/wechat-article/` 前缀映射后，与远端 `main` 的
+  79 个 blob 一一对应；内容指纹只有 `scripts/check_draft.py` 一处不同，其余 78 个逐字相同。
+  该读数用于确认虚拟树的映射规则，不是本版最终的差异清单——本版定稿改动面为
+  6 个文件（5 改 + 1 新增）；发布时按 `github-skill` 端到端流程第 ⑥ 步，用远端默认分支
+  的 tree sha 与发布树 HEAD 的 tree sha 比对，并抽查新增文件在远端可见。
+
+**已知限制与未做项（如实列出，不计入本版完成）**：
+
+- 四类改写是本次实测到的形态；微信若新增别的改写方式，归一化仍需按 gotchas C4 补，
+  不能假定已经覆盖全部平台行为。
+- `references/gotchas.md` B4、`Write/references/b4-push/draft-push-parameters.md` 与
+  `scripts/wx_api.py` 第 107 行注释，对「`draft/update` 省略封面」三处口径仍不一致
+  （本次实测省略封面确实报 40007，回读到的原封面号也不能复用）。本版未动推送侧。
+- 上一轮复盘提出的事实证据闸、图文清单契约、正文链接闸、多轮改稿留痕、零人工签字等
+  改进都未实施，均需改动现有判据脚本，另立版本逐项做，不与本次收口混在一起。
+
 ## 5.18.0（2026-11-11）引入元宝搜索网站（so.qq.com）：Search/ 加第二通道、Read/ 加换源兜底
 
 **背景**：用户要求把腾讯当天发布的元宝搜索接入 `Read/` 与 `Search/`，并明确「是元宝搜索网站 so.qq.com，不是元宝搜索 API」——不碰需要 API Key 与额度的 SearchPro 接口，只抓公开网页。实测确认四点：

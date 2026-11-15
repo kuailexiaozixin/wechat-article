@@ -74,6 +74,23 @@
 - 解决（3.2.0 起）：upload_imgs.py 写 map 时键统一为 os.path.basename(p)，写作排版按 basename 命中即换 URL。旧版本生成的 map 文件（绝对路径键）需重建：{os.path.basename(k): v for k, v in raw.items()}。
 - 验证：同一系列四篇全部按 basename 键重建后校验 ERROR=0，推送后 draft-get 正文 mmbiz 图数 = 配图数。
 
+### C4. 草稿接口会确定性改写 `<img>` 标签（B5 误报根因）
+
+- 现象（2026-11-15 实测）：本地源与草稿内容肉眼一致，`check_draft.py --source` 却在
+  归一化位置 1768 报「正文与源不一致」。
+- 根因：微信草稿接口对正文图片做平台标准化。本地写的
+  `<img src="https://mmbiz.qpic.cn/.../0?from=appmsg" alt="…" style="…">`，回读时变成
+  `<img alt="…" data-src="https://mmbiz.qpic.cn/.../640" style="…">`。四处改写：
+  ① `src` 改名 `data-src`；② 属性顺序重排；③ 规格尾缀 `/0` → `/640`；④ 查询参数被去掉。
+  这是展示规格标准化，**不是正文被清洗，也不是推错了文件**。
+- 修复（5.19.0）：`scripts/check_draft.py` 的 `norm_html()` 增加 `_canon_img()`：
+  把 `data-src` 等价回 `src`、属性排序、剥查询参数与规格尾缀；图片主体地址、`alt`、
+  `style` 原样保留。**只放宽这四点**，所以正文改字、换图、少图、改样式仍会 FAIL。
+- 判据：`tests/test_wx_normalization.py` 正反例离线固定该行为（不联网、不需凭据）。
+  回读口径见 B5 阶段的 `readback-verification.md`；排障清单以本文件 C4 为准。
+- 排障顺序：先按上述四点比对，再怀疑「改了没重推」；不要靠肉眼看着一样就判定一致比误报，
+  也没有必要为了迁就误报去改稿子。
+
 ## D. 校验与写作
 
 ### D1. 校验脚本（validate_wx_html.py）
