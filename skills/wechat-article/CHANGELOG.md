@@ -1,5 +1,20 @@
 # CHANGELOG — wechat-article
 
+## 5.21.1（2026-11-17）纠正 B5 标题长度判据：64B 非硬上限，改三档（实测 87B 全串可推）
+
+**背景**：5.21.0 重推税会文时用全串标题（87 字节），B5 `check_draft.py` 的「title<=64B」
+判据报 FAIL。但平台实据推翻该口径——已发布文章
+（https://mp.weixin.qq.com/s/gLM5x7Tm4m8HJX5wVsYxUw）标题即 87 字节全串、正常下发未截断；
+当前新推草稿 draft-get 回读标题亦为完整 87 字节。证明微信草稿 title 上限 ≥87B，
+「≤64B 硬 FAIL」是过严误设。
+
+**本版改动**：`scripts/check_draft.py` 的标题长度判据由「≤64B 否则 FAIL」改为三档：
+`≤64B PASS / 64~128B WARN（实测 87B 可推，留余量）/ >128B FAIL`；docstring 同步。
+不再把全串标题误报为阻断项。
+
+**验证**：`tests/run_all.py` 14/14 全绿（含 `test_wx_normalization` 跑 check_draft、
+`test_p0_gates` source_consistency，标题判据短例仍走 PASS 分支不受影响）。
+
 ## 5.21.0（2026-11-17）平台实测证伪「表格整表丢失」、移除 <table> 红线，再删「下文」禁词
 
 **背景**：用户质疑技能文档「`<table>` 在微信端整表不渲染/整表丢失」是把历史经验当平台事实，

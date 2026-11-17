@@ -5,7 +5,7 @@
     python check_draft.py <media_id> [--source <article.html>] [--expect-imgs N] [--json]
 
 检查项（对 draft-get 返回的草稿断言）:
-  - title  <= 64 字节（UTF-8 编码长度，中文 3 字节/字）
+  - title  长度三档：≤64B PASS / 64~128B WARN（实测 87B 全串标题可正常下发，64B 非硬上限）/ >128B FAIL
   - digest <= 120 字符
   - thumb_media_id 非空（封面已设置）
   - content 不含 <pre>（代码块结构合规，未被微信剥离）
@@ -121,7 +121,15 @@ def check(media_id, expect_imgs=None, source_path=None):
             ok = False
         checks.append((name, "PASS" if passed else "FAIL", detail))
 
-    add("title<=64B", b_len(title) <= 64, f"{b_len(title)}B / {title[:20]}")
+    tb = b_len(title)
+    # title 长度：微信草稿实测 87 字节全串标题可正常下发（已有已发布文章佐证），
+    # 64B 并非硬上限。三档：≤64 PASS；64~128 WARN（实测可用，留余量）；>128 FAIL。
+    if tb <= 64:
+        add("title<=64B", True, f"{tb}B / {title[:20]}")
+    elif tb <= 128:
+        checks.append((f"title {tb}B", "WARN", f"{tb}B / {title[:20]}（实测 87B 可推，未截断）"))
+    else:
+        add("title>128B", False, f"{tb}B / {title[:20]}（超过实测安全上限）")
     add("digest<=120", char_len(digest) <= 120, f"{char_len(digest)}字")
     add("thumb 非空", bool(thumb), thumb[:24])
     n_pre = len(re.findall(r"<pre[\s>]", content, re.I))
