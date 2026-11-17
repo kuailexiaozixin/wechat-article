@@ -18,7 +18,7 @@
   L2/L3 章节   单节段落>6 或节内对照关系     → 章节逻辑（流程图）         tool=mermaid
   L4 法条     论证边引用法条条文            → 法条拆解（卡片/表格）      tool=screenshot(gen_table)
   数据        有量化对比/趋势               → 趋势/构成（柱状/饼）       tool=screenshot(外部图表)
-  封面        每篇必配                      → 几何+字                    tool=cover(gen_cover)
+  封面        每篇必配                      → 几何+字（按文字描述绘制）  tool=cover
 
 退出码：0 = 通过；1 = 有 FAIL；2 = 用法错误/文件不存在。
 """

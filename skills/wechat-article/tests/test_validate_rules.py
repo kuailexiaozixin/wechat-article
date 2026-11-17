@@ -51,7 +51,7 @@ IMG_FIXTURES = [
     ('<section><img src="https://cdn.example.com/a.png"></section>', "非 mmbiz"),
 ]
 
-BANNED_FIXTURE = '<section><p>本文将介绍草稿推送的六道工序。</p></section>'
+BANNED_FIXTURE = '<section><p>下文介绍草稿推送的六道工序。</p></section>'
 
 
 def load_validator():

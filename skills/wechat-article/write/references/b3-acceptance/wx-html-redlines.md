@@ -47,7 +47,7 @@ B2 不再自查产物形态——那是本阶段的职责。
 | 本地路径或非 mmbiz 域名的 `<img src>` | ERROR | 图片不显示 |
 | `<div>` | WARN | API 推送路径实测不清洗、样式保留（theme-default 组件 2 在用）；编辑器粘贴路径会被改写，官方不建议——能用 `<section>` 就用 `<section>` |
 | `display:flex` | WARN | 部分机型换行/对齐异常 |
-| 正文出现禁用词（「本文」「读者」「首先」等） | ERROR | 写作纪律项，词表 `BANNED_WORDS` 在 `Write/references/b3-acceptance/scripts/validate_wx_html.py` 内是**全仓唯一一份**，此处只引不改 |
+| 正文出现禁用词（「下文」「前文」「稿件」等制作痕迹） | ERROR | 写作纪律项，词表 `BANNED_WORDS` 在 `Write/references/b3-acceptance/scripts/validate_wx_html.py` 内是**全仓唯一一份**，此处只引不改。5.20.0 起套话与顺序词已放开 |
 | 中文后紧跟半角 `, ; ! ?`、英文直引号 | WARN | 排版观感，代码块内不计 |
 
 其余要点：

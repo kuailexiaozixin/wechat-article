@@ -91,7 +91,7 @@ python Write/references/b1-images/scripts/figure_plan.py from-ledger figure-requ
 | L2/L3 章节 | 台账二/三、章间过渡 + 段落承接 | 单节段落 > 6 或节内含对照/递进关系 | 章节逻辑图（流程图） | `mermaid` |
 | L4 法条 | 台账四、Toulmin 论证边引用条文 | 某条论证边引用法条/条文 | 法条拆解卡（条文→要件→适用） | `screenshot`(gen_table) |
 | 数据 | 台账内出现量化对比/趋势 | 有数字对比、占比、时间线 | 柱状/饼/时间线 | `screenshot`(外部图表库) |
-| 封面 | 每篇必配 | — | 几何 + 题字 | `cover`(gen_cover) |
+| 封面 | 每篇必配 | — | 几何 + 题字，按文字描述绘制 | `cover`（无脚本，见 `image-upload-interfaces.md`「封面绘制规范」） |
 
 判据权威：`figure_plan.py` 的 `LAYER_TOOLS` 映射（层级错配直接拦 FAIL，比不配图更糟——
 拿法条拆解用思维导图是层级错配）。需求清单的 `trigger` 字段必须写清「为什么这张图该配」，

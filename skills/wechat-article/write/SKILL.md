@@ -59,7 +59,7 @@ A 轨道只交付一件事：**一份符合 wx-HTML 规范的 HTML 文档**（`a
 - **规范**：`Write/references/b1-images/figure-manifest-spec.md`（清单规格）、`Write/references/b1-images/image-flow-steps.md`（流程）、`Write/references/b1-images/image-upload-interfaces.md`（上传接口与错误码）
 - **动作**（按稿件所需取用）：
   1. 建 `manifest.json` 并预检：`python Write/references/b1-images/scripts/figure_manifest.py check manifest.json`
-  2. 需要图时：mermaid 出图 `Write/references/b1-images/scripts/render_mermaid.py`；表格/结构化内容 `Write/references/b1-images/scripts/gen_table.py`；封面 `Write/references/b1-images/scripts/gen_cover.py`；正文图先 `Write/references/b1-images/scripts/compress_img.py` 压到 1MB 以下
+  2. 需要图时：mermaid 出图 `Write/references/b1-images/scripts/render_mermaid.py`；表格/结构化内容 `Write/references/b1-images/scripts/gen_table.py`；封面按 `Write/references/b1-images/image-upload-interfaces.md`「封面绘制规范」写文字描述后绘制（5.20.0 起无固定脚本、不套模板）；正文图先 `Write/references/b1-images/scripts/compress_img.py` 压到 1MB 以下
   3. 上传：`python Write/references/b1-images/scripts/upload_imgs.py --manifest manifest.json --map mmbiz_map.json`（按 `filename` 批量传正文图；也可 `--html`/`--img`），产出 `mmbiz_map.json`（键为 `filename`，封面另存 media_id）
   4. 回填：`python Write/references/b1-images/scripts/fill_placeholders.py --html article-wx.html --map mmbiz_map.json` 把 A 轨占位 `__MMP__:<filename>` 换成 mmbiz URL
   5. 体检：`python Write/references/b1-images/scripts/check_urls.py --html article-wx.html --map mmbiz_map.json` 核对 mmbiz URL 可达、无漏传、无残留 `__MMP__` 占位

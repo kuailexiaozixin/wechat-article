@@ -47,7 +47,7 @@ def run():
     if not os.path.isfile(VALIDATE):
         return ["validate_wx_html.py 不存在：%s" % VALIDATE]
     vw = _load("_vw_gate", VALIDATE)
-    core = ("全文", "稿件", "对应台账", "结尾交代", "下面按", "标注推断")
+    core = ("稿件", "对应台账", "结尾交代", "下面按", "标注推断")
     for word in core:
         if word not in vw.BANNED_WORDS:
             fails.append("validate_wx_html.BANNED_WORDS 缺制作痕迹词 %r" % word)
