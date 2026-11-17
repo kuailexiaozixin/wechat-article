@@ -2,8 +2,9 @@
 """P0 三处闸口离线测试（不联网、不需凭据；全部用假数据打桩）。
 
 覆盖：
-  1. wx_draft_push.py —— 含 <table> 的 HTML 必须在取 token 之前被拦下（进程退出码 1，
-     输出 PUSH_BLOCKED，且不得出现 "TOKEN ok"）。
+  1. wx_draft_push.py —— 含 <style> 的 HTML 必须在取 token 之前被拦下（进程退出码 1，
+     输出 PUSH_BLOCKED，且不得出现 "TOKEN ok"）；
+     含 <table> 的 HTML 5.21.0 起放行（平台实测微信草稿 API 通道原样保留 <table>），不被拦。
   2. wx_api.py draft-update —— 腾讯 WAF 501 绕行成功后必须打印 MEDIA_ID_CHANGED
      old/new 与「对新 id 重跑 check_draft.py」提示。
   3. check_draft.py --source —— 源稿改过未重推时，一致比必须判 FAIL；
@@ -20,7 +21,8 @@ from contextlib import redirect_stderr, redirect_stdout
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-BAD_HTML = os.path.join(HERE, "fixtures", "wx_block_table.html")
+BAD_HTML = os.path.join(HERE, "fixtures", "wx_block_style.html")
+TABLE_HTML = os.path.join(HERE, "fixtures", "wx_block_table.html")
 GOOD_HTML = os.path.join(HERE, "fixtures", "wx_block_clean.html")
 
 
@@ -36,7 +38,7 @@ def _load(name, relpath):
 def test_push_gate():
     fails = []
     env = dict(os.environ, WECHAT_APPID="fake", WECHAT_SECRET="fake")
-    for html, want_blocked in ((BAD_HTML, True), (GOOD_HTML, False)):
+    for html, want_blocked in ((BAD_HTML, True), (TABLE_HTML, False), (GOOD_HTML, False)):
         r = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "wx_draft_push.py"),
                             "--html", html, "--title", "闸口测试标题",
                             "--digest", "测试摘要"],

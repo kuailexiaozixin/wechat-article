@@ -19,7 +19,6 @@ TAG_FIXTURES = {
     r"<script[\s>]": '<section><script>window.x=1</script><p>正文一</p></section>',
     r"<link[\s>]": '<section><link rel="stylesheet" href="a.css"><p>正文一</p></section>',
     r"<pre[\s>]": '<section><pre>python a.py --help</pre></section>',
-    r"<table[\s>]": '<section><table><tr><td>甲</td><td>乙</td></tr></table></section>',
     r"<[a-z][^>]*\sclass\s*=": '<section><p class="lead">正文一</p></section>',
     r"<[a-z][^>]*\sid\s*=": '<section><p id="lead">正文一</p></section>',
 }
@@ -51,7 +50,7 @@ IMG_FIXTURES = [
     ('<section><img src="https://cdn.example.com/a.png"></section>', "非 mmbiz"),
 ]
 
-BANNED_FIXTURE = '<section><p>下文介绍草稿推送的六道工序。</p></section>'
+BANNED_FIXTURE = '<section><p>前文介绍草稿推送的六道工序。</p></section>'
 
 
 def load_validator():

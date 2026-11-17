@@ -29,13 +29,14 @@ from html.parser import HTMLParser
 # class/id 属性检查限定「真实标签内」：代码块文本中的 `WHERE id=?`、`cls=` 等
 # 字样经 &nbsp; 转义后仍带 `id=`/`class=`，宽松正则会误报，故要求以 `<标签名` 开头）
 FORBIDDEN_TAGS = [
+    # 5.21.0 起 <table> 不再设红线：平台隔离实测（独立探针草稿 draft-add + draft-get 回读）
+    # 确认微信草稿 API 通道对 <table>/<thead>/<tbody>/<tr>/<td> 原样保留、单元格数值完整。
+    # 旧「手机端整表不渲染」结论未经真机渲染端验证，故移除；如需在移动端稳妥展示可仍选转图。
     (re.compile(r"<style[\s>]", re.I), "ERROR", "<style> 标签会被过滤，样式必须内联"),
     (re.compile(r"<script[\s>]", re.I), "ERROR", "<script> 标签会被过滤"),
     (re.compile(r"<link[\s>]", re.I), "ERROR", "外部 <link>（CSS/字体）会被过滤"),
     (re.compile(r"<pre[\s>]", re.I), "ERROR",
      "<pre> 代码块会被微信剥离并折叠空格/换行——代码块必须用 <section>+逐行 <p>"),
-    (re.compile(r"<table[\s>]", re.I), "ERROR",
-     "<table> 在微信端不渲染（手机端整表丢失）——表格用条目卡片 <section> 结构，或渲染成图片"),
     (re.compile(r"<[a-z][^>]*\sclass\s*=", re.I), "ERROR", "class 属性会被剥离，请用内联 style"),
     (re.compile(r"<[a-z][^>]*\sid\s*=", re.I), "ERROR", "id 属性会被剥离"),
     (re.compile(r"<div[\s>]", re.I), "WARN",
@@ -79,9 +80,10 @@ CODE_TAGS = {"code", "pre", "tt"}
 # 禁用词/套话（写作纪律，项目内清零；按需增删）
 # 5.20.0 按用户口径收窄：删去套话与顺序词、以及「全文/本节/本章/如上所述/以上分析」，
 # 只保留作者自述与台账坐标类制作痕迹。此表全仓唯一一份，check_captions 侧同步复用。
+# 5.21.0 再次收窄：实测「下文/前文」在正文指代章节属正常书面语，非制作痕迹，删「下文」。
 BANNED_WORDS = [
     "稿件", "对应台账", "结尾交代", "系列定位", "这一层收口", "下面按",
-    "按四步展开", "全文论证", "均标注推断", "标注推断", "另两篇", "下文", "前文",
+    "按四步展开", "全文论证", "均标注推断", "标注推断", "另两篇", "前文",
 ]
 
 # 制作痕迹的精确形状（词表用裸串会误伤「条文中」「对应第三档」等合法表达）

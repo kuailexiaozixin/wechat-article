@@ -40,14 +40,14 @@ B2 不再自查产物形态——那是本阶段的职责。
 |---|---|---|
 | `<style>` / `<script>` / `<link>` | ERROR | 标签被剥离，样式与脚本全部失效 |
 | `<pre>` | ERROR | 被剥离并折叠空格与换行，代码缩进全丢、不可读 |
-| `<table>` | ERROR | 手机端整表不渲染，表格内容消失 |
+| `<table>` | 放行 | 5.21.0 平台隔离实测（探针草稿 draft-add + draft-get 回读）确认微信草稿 API 通道对 `<table>/<thead>/<tbody>/<tr>/<td>` 原样保留、单元格数值完整，可直推；移动端如需最稳妥展示仍可渲染成图片 |
 | div + `display:table*` 伪表格 | ERROR | 预览端把单元格堆叠成纯文本，行列关系丢失（渲染不可靠，与视口宽度无关） |
 | `class` / `id` 属性 | ERROR | 属性被剥离，选择器样式全部失效 |
 | `position:fixed/absolute/sticky`、`float`、`@media`、`@keyframes`、`@import`、`display:grid`、`var(--x)`、外部字体 `url()` | ERROR | 不支持，样式被丢弃 |
 | 本地路径或非 mmbiz 域名的 `<img src>` | ERROR | 图片不显示 |
 | `<div>` | WARN | API 推送路径实测不清洗、样式保留（theme-default 组件 2 在用）；编辑器粘贴路径会被改写，官方不建议——能用 `<section>` 就用 `<section>` |
 | `display:flex` | WARN | 部分机型换行/对齐异常 |
-| 正文出现禁用词（「下文」「前文」「稿件」等制作痕迹） | ERROR | 写作纪律项，词表 `BANNED_WORDS` 在 `Write/references/b3-acceptance/scripts/validate_wx_html.py` 内是**全仓唯一一份**，此处只引不改。5.20.0 起套话与顺序词已放开 |
+| 正文出现禁用词（「前文」「稿件」「结尾交代」等制作痕迹） | ERROR | 写作纪律项，词表 `BANNED_WORDS` 在 `Write/references/b3-acceptance/scripts/validate_wx_html.py` 内是**全仓唯一一份**，此处只引不改。5.20.0 起套话与顺序词已放开，5.21.0 再删「下文」 |
 | 中文后紧跟半角 `, ; ! ?`、英文直引号 | WARN | 排版观感，代码块内不计 |
 
 其余要点：

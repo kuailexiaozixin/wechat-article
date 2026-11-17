@@ -37,7 +37,7 @@ B1 的产出物是两样：**一份图片清单** + **清单里每张图对应�
 | `figure_plan.py` | 分层配图需求校验（`check`）与需求→manifest 展开（`from-ledger`）；读 A3 逻辑台账各层结论决定配什么图 |
 | `figure_manifest.py` | 清单骨架、清单预检报告、清单/正文一致性核验、mermaid 目录转清单条目 |
 | `render_mermaid.py` | Mermaid PNG（浏览器 fallback：msedge → chrome → Chromium；本地 runtime 优先、离线可用；出图后 `crop_whitespace` 自动裁切居中） |
-| `gen_table.py` | 表格/结构化内容 → PNG（spec JSON 驱动；微信正文不渲染 `<table>`，表格一律截图；出图后 `crop_whitespace` 自动裁切居中） |
+| `gen_table.py` | 表格/结构化内容 → PNG（spec JSON 驱动；如需移动端最稳妥展示可将表格截图成图；5.21.0 起微信草稿 API 通道实测保留 `<table>`，直推表格亦可用，故本脚本作为可选路径而非唯一；出图后 `crop_whitespace` 自动裁切居中） |
 | `compress_img.py` | 把 >1MB 的正文图压到 1MB 以下（JPEG 降质量 / PNG 量化 + 降分辨率） |
 | `upload_imgs.py` | mmbiz URL 列表与 `--map` 映射；上传前逐张尺寸预检 |
 | `check_urls.py` | mmbiz URL 批量可达性体检 + 正文引用与 map 的漏传核对 + 残留 `__MMP__` 占位清零 |
@@ -68,7 +68,7 @@ B1 的产出物是两样：**一份图片清单** + **清单里每张图对应�
 |---|---|---|---|
 | 流程图、状态机、架构图 | `mermaid` | `render_mermaid.py` | 文本源码可 diff，`.mmd` 可版本控制 |
 | 思维导图、时间线 | `mermaid` | `render_mermaid.py` | mermaid mindmap/timeline 语法原生支持 |
-| **表格、对照表、分录块** | `screenshot` | `gen_table.py` | 微信不渲染 `<table>`；Mermaid 表格语法弱（不支持合并单元格/多行换行），须 HTML 截图 |
+| **表格、对照表、分录块** | HTML `<table>` 或 `screenshot` | 直推表格或 `gen_table.py` | 5.21.0 起微信草稿 API 通道实测保留 `<table>`，可直接拼表格；若需移动端最稳妥展示，用 `gen_table.py` 截图。Mermaid 表格语法弱（不支持合并单元格/多行换行） |
 | 饼图、柱状图等图表 | `screenshot` | 外部图表库出图 + 截图 | Mermaid 无原生图表能力 |
 | 需要照片/插画感的配图 | `imagegen` | 外部生图工具 | 图上文字须一次画对，禁止事后盖字修补 |
 | 封面 | （无脚本，按文字描述绘制） | 按 `image-upload-interfaces.md`「封面绘制规范」描述后绘制 | 大卡 900×383 展示最佳，建议 2048×880 |

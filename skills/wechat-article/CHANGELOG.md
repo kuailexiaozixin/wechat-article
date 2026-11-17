@@ -1,5 +1,42 @@
 # CHANGELOG — wechat-article
 
+## 5.21.0（2026-11-17）平台实测证伪「表格整表丢失」、移除 <table> 红线，再删「下文」禁词
+
+**背景**：用户质疑技能文档「`<table>` 在微信端整表不渲染/整表丢失」是把历史经验当平台事实，
+要求做隔离实测。本次用独立探针草稿（专门塞 `<table>` + 关键数值 111.17、142.08）走
+`draft-add` + `draft-get` 回读，确认微信草稿 API 通道对 `<table>/<thead>/<tbody>/<tr>/<td>`
+原样保留、单元格数值完整。据此移除 `<table>` 红线，并顺带把「下文」从禁词表再删一档。
+
+**本版改动**：
+
+1. **移除 `<table>` ERROR 红线**：`validate_wx_html.py` 的 `FORBIDDEN_TAGS` 删去
+   `<table>` 这条 ERROR 规则，改以注释记录平台实测依据。`wx-html-redlines.md` 的
+   `<table>` 行由 ERROR 改为「放行」并注明实测。`wx-html-templates.md`、`image-flow-steps.md`、
+   `gen_table.py` 的 docstring 由「微信不渲染 <table>、表格一律截图」改为「实测保留 <table>
+   可直推；gen_table.py 截图作为移动端最稳妥展示的可选路径」。保留 `display:table*` 伪表格
+   ERROR 红线不动——那是 div 伪表格的渲染问题，与真 `<table>` 标签无关。
+2. **P0 推送闸口测试调整**：`test_p0_gates.py` 原以「含 `<table>` 必须被拦」验证闸口；
+   `<table>` 放行后，改用新增夹具 `wx_block_style.html`（含 `<style>`，仍触发 ERROR）验证
+   「校验 ERROR 非 0 即取 token 前拦截」，并把 `wx_block_table.html` 的期望改为「不拦截」。
+   `test_validate_rules.py` 删去 `<table>` 的 fixture 行（规则已移除）。
+3. **禁词表再删「下文」**：`BANNED_WORDS` 由 13 词减到 12 词。`tests/test_validate_rules.py`
+   的 `BANNED_FIXTURE` 由「下文介绍…」改为「前文介绍…」（仍在表内），`gotchas.md` D2、
+   `wx-html-redlines.md` 举例同步去掉「下文」。
+4. **readback-verification.md 复核**：该文件本就只讲 `<img>` 归一化与「标准化改写≠内容丢失」，
+   未把「表格整表丢失」写成结论，无需改动；本次顺带确认其「正文与源逐字比对」判据对
+   保留 `<table>` 的稿件仍然成立（回读保留 table，归一化比对不受影响）。
+
+**判据同步**：`references/gotchas.md`、`Write/references/b3-acceptance/wx-html-redlines.md`、
+`Write/references/b2-typeset/wx-html-templates.md`、`Write/references/b1-images/image-flow-steps.md`、
+`Write/references/b1-images/scripts/gen_table.py`、`tests/test_validate_rules.py`、
+`tests/test_p0_gates.py` + 新夹具 `wx_block_style.html`、`Write/references/b5-readback/
+readback-verification.md` 共 9 处。
+
+**验证**：修复前 `tests/run_all.py` 14/14 全绿；修复后仍 14/14 全绿、无 SKIP；
+dry-run 校验「含 `<table>` + 下文」样例 0 ERROR（仅「全文无 <img>」WARNING）；
+`wx_block_table.html` 经 `wx_draft_push.py` 闸口不再被拦（want_blocked=False 通过）。
+
+
 ## 5.20.0（2026-11-17）按用户口径收窄禁用词、取消固定封面脚本
 
 **背景**：用户复盘前几篇的实际写作与配图后，明确要求两件事：一是禁用词表里那些套话与顺序词
